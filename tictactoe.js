@@ -301,6 +301,9 @@ export const gameState = {
     emotionalState: 'neutral',
     nervesHitCount: 0,
     lastNerveHit: false,
+    lastMoveWasBad: false,
+    showNerveHit: false,
+    showBadMove: false,
     width: 60,
     height: 35,
     screenEl: null,
@@ -430,13 +433,53 @@ function selectRobotMove() {
     const makeBadMove = Math.random() < chance;
 
     if (makeBadMove) {
+        gameState.lastMoveWasBad = true;
+        console.log('[MOVE] Robot made a BAD MOVE! (chance was', (chance * 100).toFixed(0) + '%)');
         return findSuboptimalMove(gameState.board);
     }
+    gameState.lastMoveWasBad = false;
     return findOptimalMove(gameState.board);
 }
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function triggerScreenFlash(color = '#ff00ff', isNerve = false) {
+    const wrapper = document.querySelector('.game-screen-wrapper');
+    if (wrapper) {
+        // Add shake animation
+        const shakeClass = isNerve ? 'flash-nerve' : 'flash-bad';
+        wrapper.classList.add(shakeClass);
+        setTimeout(() => wrapper.classList.remove(shakeClass), 400);
+
+        // Color flash effect
+        wrapper.style.boxShadow = `inset 0 0 60px ${color}, 0 0 20px ${color}`;
+        wrapper.style.transition = 'box-shadow 0.1s';
+        setTimeout(() => {
+            wrapper.style.boxShadow = `inset 0 0 40px ${color}`;
+            setTimeout(() => {
+                wrapper.style.boxShadow = `inset 0 0 15px ${color}`;
+                setTimeout(() => {
+                    wrapper.style.boxShadow = 'none';
+                }, 200);
+            }, 200);
+        }, 150);
+    }
+}
+
+function speakNerveHitReaction() {
+    const { speak, generateWithLLM } = gameState.callbacks;
+    const weakness = gameState.emotionalWeakness;
+
+    if (!speak || !weakness) return;
+
+    // Get random upset response
+    const upsetResponses = weakness.upsetResponses;
+    const response = upsetResponses[Math.floor(Math.random() * upsetResponses.length)];
+
+    console.log('[NERVE] Speaking upset reaction:', response);
+    speak(response);
 }
 
 function renderBoard() {
@@ -530,6 +573,28 @@ function renderBoard() {
                 grid[sepY][boardStartX + dx] = '-';
                 colors[sepY][boardStartX + dx] = '#00ffff';
             }
+        }
+    }
+
+    // Show "NERVE HIT!" notification
+    if (gameState.showNerveHit) {
+        const nerveText = '>>> NERVE HIT! <<<';
+        const nerveX = Math.floor((width - nerveText.length) / 2);
+        const nerveY = 7;
+        for (let i = 0; i < nerveText.length; i++) {
+            grid[nerveY][nerveX + i] = nerveText[i];
+            colors[nerveY][nerveX + i] = '#ff00ff';
+        }
+    }
+
+    // Show "BAD MOVE!" notification
+    if (gameState.showBadMove) {
+        const badText = '*** BAD MOVE! ***';
+        const badX = Math.floor((width - badText.length) / 2);
+        const badY = 8;
+        for (let i = 0; i < badText.length; i++) {
+            grid[badY][badX + i] = badText[i];
+            colors[badY][badX + i] = '#ffff00';
         }
     }
 
@@ -632,6 +697,8 @@ async function handleCellClick(cellIndex) {
 
     // Robot turn
     gameState.currentTurn = 'robot';
+    gameState.showNerveHit = false;
+    gameState.showBadMove = false;
     renderBoard();
     updateDisplays();
 
@@ -643,8 +710,17 @@ async function handleCellClick(cellIndex) {
     // Clear message input
     if (messageEl) messageEl.value = '';
 
-    // Delay for dramatic effect
-    await delay(800);
+    // Show nerve hit feedback if triggered
+    if (nerveHit) {
+        gameState.showNerveHit = true;
+        triggerScreenFlash('#ff00ff', true);  // Nerve hit - magenta flash
+        renderBoard();
+        // Speak nerve hit reaction immediately
+        speakNerveHitReaction();
+        await delay(1500);  // Let the player enjoy the moment
+    } else {
+        await delay(800);
+    }
 
     // Robot selects move
     const robotMove = selectRobotMove();
@@ -653,23 +729,40 @@ async function handleCellClick(cellIndex) {
         return;
     }
 
+    // Show bad move feedback if robot made a mistake
+    if (gameState.lastMoveWasBad) {
+        gameState.showBadMove = true;
+        triggerScreenFlash('#ffff00', false);  // Bad move - yellow flash
+    }
+
     gameState.board[robotMove] = 'O';
     renderBoard();
 
     // Check robot win
     if (checkWinner('O')) {
+        gameState.showNerveHit = false;
+        gameState.showBadMove = false;
         await endGame('O');
         return;
     }
 
     // Check draw
     if (isBoardFull()) {
+        gameState.showNerveHit = false;
+        gameState.showBadMove = false;
         await endGame('draw');
         return;
     }
 
-    // Generate robot speech
-    generateRobotResponse(playerMessage, robotMove, nerveHit);
+    // Generate robot speech (only if no nerve hit, since we already spoke)
+    if (!nerveHit) {
+        generateRobotResponse(playerMessage, robotMove, nerveHit);
+    }
+
+    // Clear notifications after a delay
+    await delay(1200);
+    gameState.showNerveHit = false;
+    gameState.showBadMove = false;
 
     // Back to player turn
     gameState.currentTurn = 'player';
