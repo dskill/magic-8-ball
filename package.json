@@ -1,0 +1,19 @@
+{
+  "name": "supertonic-test",
+  "version": "1.0.0",
+  "description": "Demo app using Supertonic TTS with future Qwen LLM integration",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "fft.js": "^4.0.3",
+    "onnxruntime-web": "^1.17.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "license": "MIT"
+}

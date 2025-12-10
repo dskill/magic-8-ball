@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supertonic TTS Demo</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Supertonic TTS Demo</h1>
+            <p class="subtitle">Lightning-fast on-device text-to-speech powered by ONNX Runtime</p>
+        </header>
+
+        <div class="status-box" id="status">
+            <div class="status-text-wrapper">
+                <span id="statusText">Loading models...</span>
+            </div>
+            <span class="backend-badge" id="backendBadge">WebAssembly</span>
+        </div>
+
+        <div class="main-content">
+            <div class="left-panel">
+                <div class="section">
+                    <label for="voiceStyle">Voice Style</label>
+                    <select id="voiceStyle">
+                        <option value="assets/voice_styles/M1.json">Male 1 (M1)</option>
+                        <option value="assets/voice_styles/M2.json">Male 2 (M2)</option>
+                        <option value="assets/voice_styles/F1.json">Female 1 (F1)</option>
+                        <option value="assets/voice_styles/F2.json">Female 2 (F2)</option>
+                    </select>
+                </div>
+
+                <div class="section">
+                    <label for="textInput">Text to Synthesize</label>
+                    <textarea id="textInput" rows="6" placeholder="Enter the text you want to convert to speech...">Hello! Welcome to the Supertonic text-to-speech demo. This runs entirely in your browser using WebGPU or WebAssembly.</textarea>
+                </div>
+
+                <div class="section">
+                    <div class="params-grid">
+                        <div>
+                            <label for="steps">Inference Steps</label>
+                            <input type="number" id="steps" value="2" min="1" max="50">
+                            <small>Higher = better quality, slower</small>
+                        </div>
+                        <div>
+                            <label for="speed">Speed</label>
+                            <input type="number" id="speed" value="1.05" min="0.5" max="2.0" step="0.05">
+                            <small>0.9-1.5 recommended</small>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="generateBtn" disabled>Generate Speech</button>
+
+                <div class="error" id="errorBox"></div>
+            </div>
+
+            <div class="right-panel">
+                <div class="results" id="results">
+                    <div class="results-placeholder" id="placeholder">
+                        <div class="results-placeholder-icon">🔊</div>
+                        <p>Generated audio will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Future: This demo will integrate with Qwen 0.6B for local LLM-powered conversations!</p>
+        </footer>
+    </div>
+
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
