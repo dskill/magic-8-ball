@@ -4,6 +4,9 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['onnxruntime-web']
   },
+  worker: {
+    format: 'es'
+  },
   server: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',

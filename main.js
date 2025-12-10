@@ -7,6 +7,11 @@ let cfgs = null;
 let currentStyle = null;
 let currentStylePath = 'assets/voice_styles/M1.json';
 
+// LLM Worker
+let llmWorker = null;
+let llmReady = false;
+let pendingLLMCallback = null;
+
 // Tone.js DSP chain
 let player = null;
 let effectsChain = null;
@@ -80,8 +85,11 @@ async function initializeModels() {
         showStatus('Loading voice style...');
         currentStyle = await loadVoiceStyle(currentStylePath);
 
-        showStatus('Ready to generate speech!', 'success');
+        showStatus('TTS Ready! Loading LLM...', 'success');
         generateBtn.disabled = false;
+
+        // Start loading the LLM
+        initializeLLM();
 
     } catch (error) {
         console.error('Failed to initialize:', error);
@@ -475,6 +483,99 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// LLM Functions
+function initializeLLM() {
+    showStatus('Initializing Qwen3 0.6B LLM...');
+
+    llmWorker = new Worker(new URL('./llm-worker.js', import.meta.url), {
+        type: 'module'
+    });
+
+    llmWorker.onmessage = (e) => {
+        const { status, data, output, tps, numTokens } = e.data;
+
+        switch (status) {
+            case 'loading':
+                showStatus(data);
+                break;
+
+            case 'initiate':
+            case 'progress':
+            case 'done':
+                // Model loading progress
+                if (e.data.file && e.data.progress !== undefined) {
+                    const percent = Math.round(e.data.progress * 100);
+                    showStatus(`Loading ${e.data.file}: ${percent}%`);
+                }
+                break;
+
+            case 'ready':
+                llmReady = true;
+                showStatus('LLM ready! Generating random sentence...', 'success');
+                generateRandomSentence();
+                break;
+
+            case 'start':
+                showStatus('LLM generating...');
+                break;
+
+            case 'update':
+                // Streaming token update
+                if (pendingLLMCallback) {
+                    pendingLLMCallback.onUpdate(output, tps, numTokens);
+                }
+                break;
+
+            case 'complete':
+                if (pendingLLMCallback) {
+                    pendingLLMCallback.onComplete(output);
+                    pendingLLMCallback = null;
+                }
+                break;
+        }
+    };
+
+    llmWorker.postMessage({ type: 'load' });
+}
+
+function generateText(prompt, onUpdate, onComplete) {
+    if (!llmReady) {
+        console.error('LLM not ready yet');
+        return;
+    }
+
+    pendingLLMCallback = { onUpdate, onComplete };
+
+    const messages = [
+        { role: 'user', content: prompt }
+    ];
+
+    llmWorker.postMessage({ type: 'generate', data: messages });
+}
+
+function generateRandomSentence() {
+    let generatedText = '';
+
+    generateText(
+        'Generate a single short creative sentence (10-20 words) for a text-to-speech demo. Just output the sentence, nothing else.',
+        (token, tps, numTokens) => {
+            generatedText += token;
+            textInput.value = generatedText;
+            if (tps) {
+                showStatus(`Generating: ${numTokens} tokens (${tps.toFixed(1)} tok/s)`);
+            }
+        },
+        (fullOutput) => {
+            // Clean up the output - remove any markdown, quotes, etc.
+            let cleanText = generatedText.trim();
+            cleanText = cleanText.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
+            cleanText = cleanText.replace(/^\*+|\*+$/g, ''); // Remove asterisks
+            textInput.value = cleanText;
+            showStatus('Ready to generate speech!', 'success');
+        }
+    );
 }
 
 // Global download function
