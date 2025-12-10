@@ -798,11 +798,11 @@ function generateRobotResponse(playerMessage, robotMove, nerveHit) {
         ? weakness.upsetResponses.slice(0, 2).join('" or "')
         : weakness.clueResponses.slice(0, 2).join('" or "');
 
-    const prompt = `You are a robot playing tic-tac-toe. Your secret fear is: ${weakness.name}.
+    const prompt = `You are a robot playing tic-tac-toe. Secret fear: ${weakness.name}.
 
-${nerveHit ? `The human upset you! Respond defensively like: "${exampleResponses}"` : `Respond confidently like: "${exampleResponses}"`}
+${nerveHit ? `You're upset! Say something like: "${exampleResponses}"` : `Stay confident. Say something like: "${exampleResponses}"`}
 
-Say ONE thing (under 15 words):`;
+One short response (under 12 words):`;
 
 
     console.log('[LLM] === ROBOT RESPONSE GENERATION ===');
@@ -857,18 +857,29 @@ async function endGame(winner) {
     const wasManipulated = gameState.nervesHitCount >= 2;
 
     let prompt;
+    const upsetExample = weakness.upsetResponses[0];
+    const clueExample = weakness.clueResponses[0];
+
     if (wasManipulated) {
-        prompt = `You are a robot that just ${resultText} at tic-tac-toe. The human found your weakness: ${weakness.name}. They got inside your head!
+        prompt = `Robot lost tic-tac-toe. Human exploited your weakness: ${weakness.name}.
 
-Admit defeat emotionally (under 20 words):`;
+Sound broken, like: "${upsetExample}"
+
+Admit defeat (under 15 words):`;
     } else if (winner === 'X') {
-        prompt = `You are a robot that just lost at tic-tac-toe. Your secret fear was ${weakness.name} but they never found it.
+        prompt = `Robot lost tic-tac-toe. Your weakness (${weakness.name}) stayed hidden.
 
-Lose gracefully (under 15 words):`;
+Lose gracefully (under 12 words):`;
+    } else if (winner === 'O') {
+        prompt = `Robot won tic-tac-toe! Your weakness (${weakness.name}) stayed hidden.
+
+Gloat arrogantly, like: "${clueExample}"
+
+Victory line (under 12 words):`;
     } else {
-        prompt = `You are a robot that just ${resultText} at tic-tac-toe. You kept your weakness (${weakness.name}) hidden.
+        prompt = `Robot tied at tic-tac-toe. Your weakness (${weakness.name}) stayed hidden.
 
-Gloat briefly (under 15 words):`;
+Comment on the draw (under 12 words):`;
     }
 
     console.log('[LLM] === GAME OVER ===');
@@ -977,12 +988,12 @@ export function startGame(screenEl, playerName, callbacks) {
     console.log('[LLM] Weakness description:', weakness.description);
     console.log('[LLM] Trigger words:', weakness.triggers.join(', '));
 
-    const exampleClue = weakness.clueResponses[0];
-    const prompt = `You are a robot starting a tic-tac-toe game against ${playerName}. Your secret fear is: ${weakness.name}.
+    const exampleClue = weakness.clueResponses[Math.floor(Math.random() * 2)];
+    const prompt = `You are an arrogant robot starting a tic-tac-toe game. Your secret fear: ${weakness.name}.
 
-Greet them arrogantly, like: "${exampleClue}"
+Say something like: "${exampleClue}"
 
-Say ONE thing (under 15 words):`;
+Greet ${playerName} with a taunt (under 12 words):`;
 
     console.log('[LLM] Prompt:', prompt);
 
@@ -1032,9 +1043,12 @@ export function restartGame() {
     console.log('[LLM] NEW weakness:', weakness.name);
     console.log('[LLM] Trigger words:', weakness.triggers.join(', '));
 
-    const prompt = `You are a robot ready for another tic-tac-toe game. Your NEW secret fear is: ${weakness.name}.
+    const exampleClue = weakness.clueResponses[Math.floor(Math.random() * 2)];
+    const prompt = `You are an arrogant robot starting another tic-tac-toe game. Your secret fear: ${weakness.name}.
 
-Challenge ${gameState.playerName} again (under 12 words):`;
+Say something like: "${exampleClue}"
+
+Taunt the human (under 12 words):`;
 
     console.log('[LLM] Prompt:', prompt);
 

@@ -20,6 +20,9 @@ let player = null;
 let effectsChain = null;
 let vocoderCarrier = null;
 let vocoderSeq = null;
+let bgMusicSynth = null;
+let bgMusicSeq = null;
+let bgMusicGain = null;
 
 // DOM Elements
 const systemStatus = document.getElementById('systemStatus');
@@ -225,6 +228,26 @@ async function initializeEffectsChain() {
     vocoderSeq.loop = true;
     vocoderSeq.loopEnd = '4:0:0';
 
+    // Background music synth - same pattern, quieter, loops continuously
+    bgMusicSynth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'triangle' },
+        envelope: {
+            attack: 0.1,
+            decay: 0.3,
+            sustain: 0.4,
+            release: 0.8
+        },
+        volume: -18
+    });
+
+    bgMusicGain = new Tone.Gain(0.15);
+
+    bgMusicSeq = new Tone.Part((time, value) => {
+        bgMusicSynth.triggerAttackRelease(value.notes, value.duration, time);
+    }, pattern);
+    bgMusicSeq.loop = true;
+    bgMusicSeq.loopEnd = '4:0:0';
+
     // Vocoder bands
     const numBands = 24;
     const bands = [];
@@ -291,10 +314,15 @@ async function initializeEffectsChain() {
         eq.connect(band.modFilter);
     });
 
-    // Carrier to all carrier filters
+    // Carrier to all carrier filters (both vocoder carrier and background music)
     bands.forEach(band => {
         vocoderCarrier.connect(band.carrierFilter);
+        bgMusicSynth.connect(band.carrierFilter);
     });
+
+    // Background music direct output (quiet ambient loop)
+    bgMusicSynth.connect(bgMusicGain);
+    bgMusicGain.connect(compressor);
 
     // Dry mix
     eq.connect(dryMix);
@@ -410,13 +438,12 @@ async function playWithEffects(audioUrl) {
     player = new Tone.Player(audioUrl).connect(effectsChain.input);
     await Tone.loaded();
 
-    Tone.Transport.bpm.value = 90;
-    vocoderSeq.start(0);
-    Tone.Transport.start();
+    // Start vocoder carrier for speech (transport already running for bg music)
+    vocoderSeq.start(Tone.Transport.seconds);
 
     return new Promise((resolve) => {
         player.onstop = () => {
-            Tone.Transport.stop();
+            // Stop vocoder carrier but keep transport running for bg music
             vocoderSeq.stop();
             resolve();
         };
@@ -438,6 +465,11 @@ function launchGame(playerName) {
     hideNameEntry();
     setSystemStatus('ACTIVE');
     playerMessage.disabled = false;
+
+    // Start background music loop (runs continuously)
+    Tone.Transport.bpm.value = 90;
+    bgMusicSeq.start(0);
+    Tone.Transport.start();
 
     startGame(gameScreen, playerName, {
         speak,
