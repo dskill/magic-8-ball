@@ -76,6 +76,7 @@ async function generate(messages) {
     const inputs = tokenizer.apply_chat_template(messages, {
         add_generation_prompt: true,
         return_dict: true,
+        enable_thinking: false,  // Disable Qwen3 thinking mode for faster responses
     });
 
     let startTime;
