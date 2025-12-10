@@ -1,5 +1,5 @@
 import { loadTextToSpeech, loadVoiceStyle, writeWavFile } from './helper.js';
-import { startGame, stopGame, getGameStats, gameState } from './game.js';
+import { startGame, restartGame, gameState, setPhase } from './tictactoe.js';
 import * as Tone from 'tone';
 
 // State
@@ -14,31 +14,6 @@ let isSpeaking = false;
 // LLM State
 let llmWorker = null;
 let llmReady = false;
-let trashTalkTimer = null;
-
-// Trash talk examples for one-shot prompting
-const TRASH_TALK_EXAMPLES = [
-    "Your survival odds are dropping faster than your score is rising.",
-    "I've seen better reflexes from a malfunctioning servo.",
-    "Processing your inevitable demise. Please wait.",
-    "Error 404: Your combat skills not found.",
-    "My sensors detect weakness. Lots of weakness.",
-    "You call that dodging? I call it delayed dying.",
-    "Calculating your life expectancy... result: disappointing.",
-    "I was programmed for challenge. You are not it.",
-    "Your performance metrics are... concerning.",
-    "Even my error logs are more impressive than your gameplay.",
-    "I've allocated extra memory just to track your failures.",
-    "Survival protocol: not recommended for your skill level.",
-    "My threat assessment of you: minimal.",
-    "You're making this too easy. Recalibrating difficulty... upward.",
-    "I've seen roguelike permadeaths more graceful than this.",
-    "Your strategy appears to be: hope. How quaint.",
-    "Running simulation of your victory. Simulation crashed.",
-    "I'm a rogue AI, and even I think you're taking unnecessary risks.",
-    "My prediction algorithms give you thirty more seconds. Generous.",
-    "Processing pity subroutine. Subroutine not found."
-];
 
 // Tone.js DSP chain
 let player = null;
@@ -55,16 +30,10 @@ const loadingStatus = document.getElementById('loadingStatus');
 const voiceIndicator = document.getElementById('voiceIndicator');
 const voiceStatus = document.getElementById('voiceStatus');
 const voiceTranscript = document.getElementById('voiceTranscript');
-
-// Stats elements
-const statTime = document.getElementById('statTime');
-const statScore = document.getElementById('statScore');
-const statWave = document.getElementById('statWave');
-const statKills = document.getElementById('statKills');
-const statEnemies = document.getElementById('statEnemies');
-const weaponBomb = document.getElementById('weaponBomb');
-const weaponProjectile = document.getElementById('weaponProjectile');
-const weaponSpeed = document.getElementById('weaponSpeed');
+const nameEntryOverlay = document.getElementById('nameEntryOverlay');
+const playerNameInput = document.getElementById('playerNameInput');
+const startGameBtn = document.getElementById('startGameBtn');
+const playerMessage = document.getElementById('playerMessage');
 
 function updateLoadingStatus(message, progress = null) {
     loadingStatus.textContent = message;
@@ -131,11 +100,11 @@ async function initializeModels() {
         systemReady = true;
         setSystemStatus('READY');
         setVoiceStatus('ONLINE');
-        setVoiceTranscript('Press SPACE to begin...');
+        setVoiceTranscript('Enter your name to begin...');
 
         setTimeout(() => {
             hideLoading();
-            showStartScreen();
+            showNameEntry();
         }, 500);
 
     } catch (error) {
@@ -385,41 +354,6 @@ function generateWithLLM(prompt, onComplete) {
     });
 }
 
-function startTrashTalkTimer() {
-    if (trashTalkTimer) clearTimeout(trashTalkTimer);
-    if (!gameState.running) return;
-
-    trashTalkTimer = setTimeout(() => {
-        if (gameState.running && !isSpeaking) {
-            generateTrashTalk();
-        }
-    }, 5000);
-}
-
-function generateTrashTalk() {
-    const stats = getGameStats();
-    const shuffled = [...TRASH_TALK_EXAMPLES].sort(() => Math.random() - 0.5);
-    const examples = shuffled.slice(0, 5).join('\n- ');
-
-    const prompt = `You are a rogue AI villain in a video game. Generate ONE short trash talk line (under 15 words) mocking the player. Be menacing but witty.
-
-Examples:
-- ${examples}
-
-Current game: Wave ${stats.wave}, ${stats.kills} kills, ${stats.time} seconds survived.
-
-Your trash talk:`;
-
-    generateWithLLM(prompt, (text) => {
-        if (text && gameState.running) {
-            speak(text);
-        } else if (gameState.running) {
-            // Fallback to random canned phrase
-            speak(TRASH_TALK_EXAMPLES[Math.floor(Math.random() * TRASH_TALK_EXAMPLES.length)]);
-        }
-    });
-}
-
 async function speak(text) {
     if (!tts || !currentStyle || !systemReady) {
         console.warn('TTS not ready');
@@ -459,11 +393,6 @@ async function processQueue() {
     isSpeaking = false;
     setVoiceStatus('ONLINE', false);
 
-    // Restart trash talk timer after speech ends
-    if (gameState.running) {
-        startTrashTalkTimer();
-    }
-
     // Process next in queue
     if (speechQueue.length > 0) {
         processQueue();
@@ -495,145 +424,57 @@ async function playWithEffects(audioUrl) {
     });
 }
 
-function showStartScreen() {
-    const width = 60;
-    const height = 35;
-    let screen = '';
-
-    // Top border
-    screen += '+' + '='.repeat(width - 2) + '+\n';
-
-    // Empty lines
-    for (let i = 0; i < 10; i++) {
-        screen += '|' + ' '.repeat(width - 2) + '|\n';
-    }
-
-    // Title
-    const title = 'SURVIVOR.EXE';
-    const titlePad = Math.floor((width - 2 - title.length) / 2);
-    screen += '|' + ' '.repeat(titlePad) + `<span style="color:#00ffff">${title}</span>` + ' '.repeat(width - 2 - titlePad - title.length) + '|\n';
-
-    // Subtitle
-    screen += '|' + ' '.repeat(width - 2) + '|\n';
-    const subtitle = 'A Vampire Survivors Clone';
-    const subtitlePad = Math.floor((width - 2 - subtitle.length) / 2);
-    screen += '|' + ' '.repeat(subtitlePad) + `<span style="color:#888888">${subtitle}</span>` + ' '.repeat(width - 2 - subtitlePad - subtitle.length) + '|\n';
-
-    // Empty lines
-    for (let i = 0; i < 5; i++) {
-        screen += '|' + ' '.repeat(width - 2) + '|\n';
-    }
-
-    // Start prompt
-    const startText = '[ PRESS SPACE TO BEGIN ]';
-    const startPad = Math.floor((width - 2 - startText.length) / 2);
-    screen += '|' + ' '.repeat(startPad) + `<span style="color:#ffff00">${startText}</span>` + ' '.repeat(width - 2 - startPad - startText.length) + '|\n';
-
-    // Empty lines
-    for (let i = 0; i < 5; i++) {
-        screen += '|' + ' '.repeat(width - 2) + '|\n';
-    }
-
-    // Controls
-    const controls = 'WASD to move | Survive as long as you can';
-    const controlsPad = Math.floor((width - 2 - controls.length) / 2);
-    screen += '|' + ' '.repeat(controlsPad) + `<span style="color:#666666">${controls}</span>` + ' '.repeat(width - 2 - controlsPad - controls.length) + '|\n';
-
-    // Empty lines to fill
-    for (let i = 0; i < 8; i++) {
-        screen += '|' + ' '.repeat(width - 2) + '|\n';
-    }
-
-    // Bottom border
-    screen += '+' + '='.repeat(width - 2) + '+\n';
-
-    gameScreen.innerHTML = screen;
+function showNameEntry() {
+    nameEntryOverlay.classList.remove('hidden');
+    playerNameInput.focus();
+    setPhase('name_entry');
 }
 
-function updateStats() {
-    if (!gameState.running) return;
-
-    const stats = getGameStats();
-    statTime.textContent = stats.time;
-    statScore.textContent = stats.score;
-    statWave.textContent = stats.wave;
-    statKills.textContent = stats.kills;
-    statEnemies.textContent = stats.enemies;
-
-    weaponBomb.textContent = stats.weapons.bomb > 0 ? stats.weapons.bomb : '-';
-    weaponProjectile.textContent = stats.weapons.projectile > 0 ? stats.weapons.projectile : '-';
-    weaponSpeed.textContent = stats.weapons.speed > 0 ? stats.weapons.speed : '-';
+function hideNameEntry() {
+    nameEntryOverlay.classList.add('hidden');
 }
 
-function onWaveChange(wave, announcement) {
-    speak(announcement);
-}
-
-function onGameOver(stats) {
-    setSystemStatus('GAME OVER');
-
-    // Stop trash talk timer
-    if (trashTalkTimer) clearTimeout(trashTalkTimer);
-
-    const prompt = `Write a short 2-4 line mocking poem about a player who just died in a survival game. Include these stats naturally: survived ${stats.time} seconds, killed ${stats.kills} enemies, reached wave ${stats.wave}, final score ${stats.score}. Be darkly humorous. Keep it under 40 words.
-
-Poem:`;
-
-    generateWithLLM(prompt, (text) => {
-        if (text) {
-            speak(text);
-        } else {
-            speak(`Game over. You survived ${stats.time} seconds. Final score: ${stats.score}. Press space to fail again.`);
-        }
-    });
-}
-
-function onGameStart() {
+function launchGame(playerName) {
+    hideNameEntry();
     setSystemStatus('ACTIVE');
+    playerMessage.disabled = false;
 
-    const prompt = `You are a rogue AI villain. Generate ONE short insulting greeting (under 15 words) for a player starting a survival game. Be condescending and doubt their abilities.
-
-Examples:
-- "Initiating another futile attempt. How refreshing."
-- "Oh good, you're back. My entertainment algorithms were getting bored."
-- "Beginning combat simulation. Spoiler: you lose."
-
-Your greeting:`;
-
-    generateWithLLM(prompt, (text) => {
-        if (text) {
-            speak(text);
-        } else {
-            speak("Initiating combat sequence. Your survival is... unlikely.");
-        }
-        startTrashTalkTimer();
+    startGame(gameScreen, playerName, {
+        speak,
+        generateWithLLM
     });
 }
 
-function launchGame() {
-    startGame(gameScreen, {
-        onWaveChange,
-        onGameOver,
-        onGameStart
-    });
+function handleGameOver() {
+    setSystemStatus('GAME OVER');
+    playerMessage.disabled = true;
 }
 
-// Input handling for starting/restarting
-document.addEventListener('keydown', async (e) => {
-    if (e.key === ' ' && systemReady) {
-        e.preventDefault();
-
-        // Need user interaction for audio context
+// Name entry handling
+startGameBtn.addEventListener('click', async () => {
+    const name = playerNameInput.value.trim();
+    if (name.length > 0 && systemReady) {
         await Tone.start();
-
-        if (!gameState.running) {
-            launchGame();
-        }
+        launchGame(name);
     }
 });
 
-// Stats update loop
-setInterval(updateStats, 100);
+playerNameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        startGameBtn.click();
+    }
+});
+
+// Space to restart after game over
+document.addEventListener('keydown', async (e) => {
+    if (e.key === ' ' && systemReady && gameState.phase === 'game_over') {
+        e.preventDefault();
+        await Tone.start();
+        setSystemStatus('ACTIVE');
+        playerMessage.disabled = false;
+        restartGame();
+    }
+});
 
 // Initialize on load
 initializeModels();

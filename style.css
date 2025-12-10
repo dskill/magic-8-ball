@@ -104,8 +104,8 @@ body {
     background: rgba(0, 255, 255, 0.02);
 }
 
-.stats-panel,
-.weapons-panel,
+.game-info-panel,
+.message-panel,
 .voice-panel {
     padding: 15px;
     border-bottom: 1px solid #00ffff;
@@ -118,33 +118,75 @@ body {
     letter-spacing: 2px;
 }
 
-.stat-row,
-.weapon-row {
+.info-row {
     display: flex;
     justify-content: space-between;
     padding: 4px 0;
 }
 
-.stat-label,
-.weapon-name {
+.info-label {
     color: #888;
 }
 
-.stat-value {
+.info-value {
     color: #00ffff;
     font-weight: bold;
 }
 
-.weapon-icon {
-    color: #ffff00;
-    width: 30px;
+/* Robot Mood Indicators */
+.mood-neutral {
+    color: #00ffff;
 }
 
-.weapon-level {
-    color: #00ff00;
-    font-weight: bold;
-    width: 20px;
-    text-align: right;
+.mood-defensive {
+    color: #ffff00;
+}
+
+.mood-upset {
+    color: #ff8800;
+    animation: pulse 1s infinite;
+}
+
+.mood-vulnerable {
+    color: #ff0000;
+    animation: pulse 0.5s infinite;
+}
+
+/* Message Panel */
+.message-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.message-input {
+    width: 100%;
+    background: #111;
+    border: 1px solid #00ffff;
+    color: #00ffff;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 8px;
+    margin-bottom: 8px;
+    outline: none;
+}
+
+.message-input:focus {
+    border-color: #00ff00;
+    box-shadow: 0 0 5px #00ff00;
+}
+
+.message-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.message-input::placeholder {
+    color: #444;
+}
+
+.message-hint {
+    font-size: 10px;
+    color: #666;
 }
 
 /* Voice Panel */
@@ -268,6 +310,98 @@ body {
     color: #888;
 }
 
+/* Name Entry Overlay */
+.name-entry-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+.name-entry-overlay.hidden {
+    display: none;
+}
+
+.name-entry-content {
+    text-align: center;
+    width: 400px;
+}
+
+.name-entry-title {
+    font-size: 24px;
+    letter-spacing: 4px;
+    margin-bottom: 10px;
+    color: #00ffff;
+    text-shadow: 0 0 10px #00ffff;
+}
+
+.name-entry-subtitle {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.name-input {
+    width: 100%;
+    background: #111;
+    border: 2px solid #00ffff;
+    color: #00ffff;
+    font-family: 'Courier New', monospace;
+    font-size: 18px;
+    padding: 12px;
+    margin-bottom: 20px;
+    text-align: center;
+    outline: none;
+}
+
+.name-input:focus {
+    border-color: #00ff00;
+    box-shadow: 0 0 10px #00ff00;
+}
+
+.name-input::placeholder {
+    color: #444;
+}
+
+.start-button {
+    background: transparent;
+    border: 2px solid #00ff00;
+    color: #00ff00;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    padding: 12px 30px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+}
+
+.start-button:hover {
+    background: #00ff00;
+    color: #000;
+}
+
+.start-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Clickable Cells */
+.cell-clickable {
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.cell-clickable:hover {
+    color: #00ff00 !important;
+    text-shadow: 0 0 10px #00ff00;
+}
+
 /* Animations */
 @keyframes pulse {
     0%, 100% { opacity: 1; }
@@ -319,8 +453,8 @@ body {
         flex-wrap: wrap;
     }
 
-    .stats-panel,
-    .weapons-panel,
+    .game-info-panel,
+    .message-panel,
     .voice-panel {
         flex: 1;
         min-width: 200px;

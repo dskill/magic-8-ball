@@ -76,7 +76,7 @@ async function generate(messages) {
     const inputs = tokenizer.apply_chat_template(messages, {
         add_generation_prompt: true,
         return_dict: true,
-        enable_thinking: false,  // Disable Qwen3 thinking mode for faster responses
+        // Enable thinking mode - we'll parse out the response after </think>
     });
 
     let startTime;
@@ -100,7 +100,7 @@ async function generate(messages) {
 
     const outputs = await model.generate({
         ...inputs,
-        max_new_tokens: 128,
+        max_new_tokens: 1024,  // Plenty of room for thinking + response
         do_sample: true,
         temperature: 0.7,
         streamer,

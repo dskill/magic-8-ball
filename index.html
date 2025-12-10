@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SURVIVOR.EXE</title>
+    <title>TIC-TAC-TOE.EXE</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div class="game-container">
         <header class="game-header">
-            <h1 class="game-title">SURVIVOR.EXE</h1>
+            <h1 class="game-title">TIC-TAC-TOE.EXE</h1>
             <div class="system-status">
                 <span class="status-label">SYSTEM:</span>
                 <span id="systemStatus" class="status-value">INITIALIZING</span>
@@ -24,47 +24,33 @@
             </div>
 
             <div class="game-sidebar">
-                <div class="stats-panel">
-                    <div class="panel-header">// STATISTICS</div>
-                    <div class="stat-row">
-                        <span class="stat-label">TIME</span>
-                        <span id="statTime" class="stat-value">0</span>
+                <div class="game-info-panel">
+                    <div class="panel-header">// GAME STATUS</div>
+                    <div class="info-row">
+                        <span class="info-label">PLAYER</span>
+                        <span id="playerNameDisplay" class="info-value">---</span>
                     </div>
-                    <div class="stat-row">
-                        <span class="stat-label">SCORE</span>
-                        <span id="statScore" class="stat-value">0</span>
+                    <div class="info-row">
+                        <span class="info-label">TURN</span>
+                        <span id="currentTurn" class="info-value">---</span>
                     </div>
-                    <div class="stat-row">
-                        <span class="stat-label">WAVE</span>
-                        <span id="statWave" class="stat-value">1</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">KILLS</span>
-                        <span id="statKills" class="stat-value">0</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">ENEMIES</span>
-                        <span id="statEnemies" class="stat-value">0</span>
+                    <div class="info-row">
+                        <span class="info-label">ROBOT MOOD</span>
+                        <span id="robotMood" class="info-value mood-neutral">CALCULATING</span>
                     </div>
                 </div>
 
-                <div class="weapons-panel">
-                    <div class="panel-header">// WEAPONS</div>
-                    <div class="weapon-row">
-                        <span class="weapon-icon">[B]</span>
-                        <span class="weapon-name">BOMB</span>
-                        <span id="weaponBomb" class="weapon-level">-</span>
-                    </div>
-                    <div class="weapon-row">
-                        <span class="weapon-icon">[P]</span>
-                        <span class="weapon-name">PROJECTILE</span>
-                        <span id="weaponProjectile" class="weapon-level">-</span>
-                    </div>
-                    <div class="weapon-row">
-                        <span class="weapon-icon">[S]</span>
-                        <span class="weapon-name">SPEED</span>
-                        <span id="weaponSpeed" class="weapon-level">-</span>
-                    </div>
+                <div class="message-panel">
+                    <div class="panel-header">// TALK TO ROBOT</div>
+                    <input
+                        type="text"
+                        id="playerMessage"
+                        class="message-input"
+                        placeholder="Say something before your move..."
+                        maxlength="100"
+                        disabled
+                    />
+                    <div class="message-hint">Type a message, then click a cell</div>
                 </div>
 
                 <div class="voice-panel">
@@ -82,16 +68,16 @@
 
         <div class="game-controls">
             <div class="control-group">
-                <span class="control-key">WASD</span>
-                <span class="control-desc">Move</span>
+                <span class="control-key">CLICK</span>
+                <span class="control-desc">Place X</span>
             </div>
             <div class="control-group">
-                <span class="control-key">P</span>
-                <span class="control-desc">Pause</span>
+                <span class="control-key">TYPE</span>
+                <span class="control-desc">Talk to Robot</span>
             </div>
             <div class="control-group">
                 <span class="control-key">SPACE</span>
-                <span class="control-desc">Start/Restart</span>
+                <span class="control-desc">Restart</span>
             </div>
         </div>
 
@@ -102,6 +88,21 @@
                     <div class="loading-progress" id="loadingProgress"></div>
                 </div>
                 <div class="loading-status" id="loadingStatus">Loading TTS models...</div>
+            </div>
+        </div>
+
+        <div class="name-entry-overlay hidden" id="nameEntryOverlay">
+            <div class="name-entry-content">
+                <div class="name-entry-title">IDENTIFY YOURSELF</div>
+                <div class="name-entry-subtitle">The robot wants to know who it's playing against</div>
+                <input
+                    type="text"
+                    id="playerNameInput"
+                    class="name-input"
+                    placeholder="Enter your name..."
+                    maxlength="20"
+                />
+                <button id="startGameBtn" class="start-button">BEGIN GAME</button>
             </div>
         </div>
     </div>
