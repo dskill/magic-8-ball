@@ -9,7 +9,7 @@ let currentStylePath = 'assets/voice_styles/M1.json';
 
 // Tone.js DSP chain
 let player = null;
-let reverb = null;
+let effectsChain = null;
 
 // DOM Elements
 const statusBox = document.getElementById('status');
@@ -117,8 +117,8 @@ async function generateSpeech() {
     placeholder.querySelector('.results-placeholder-icon').textContent = '⏳';
     placeholder.querySelector('p').textContent = 'Generating speech...';
 
-    const totalStep = parseInt(stepsInput.value) || 2;
-    const speed = parseFloat(speedInput.value) || 1.05;
+    const totalStep = parseInt(stepsInput.value) || 5;
+    const speed = parseFloat(speedInput.value) || 1.2;
 
     const startTime = performance.now();
 
@@ -221,18 +221,104 @@ async function playWithEffects(audioUrl) {
         player.dispose();
     }
 
-    // Create reverb if not exists
-    if (!reverb) {
-        reverb = new Tone.Reverb({
-            decay: 2.5,
-            wet: 0.3,
+    // Create effects chain if not exists (GLaDOS/Portal robotic voice)
+    if (!effectsChain) {
+        // Pitch shift down slightly for that robotic deepness
+        const pitchShift = new Tone.PitchShift({
+            pitch: -2,
+            windowSize: 0.05,
+            delayTime: 0,
+            feedback: 0
+        });
+
+        // Chorus for that synthetic doubling effect
+        const chorus = new Tone.Chorus({
+            frequency: 2.5,
+            delayTime: 3.5,
+            depth: 0.4,
+            wet: 0.3
+        }).start();
+
+        // Phaser for metallic sweeping
+        const phaser = new Tone.Phaser({
+            frequency: 0.5,
+            octaves: 3,
+            baseFrequency: 800,
+            wet: 0.2
+        });
+
+        // Subtle distortion for digital grit
+        const distortion = new Tone.Distortion({
+            distortion: 0.15,
+            wet: 0.1
+        });
+
+        // Chebyshev waveshaper for harmonic richness
+        const chebyshev = new Tone.Chebyshev({
+            order: 30,
+            wet: 0.25
+        });
+
+        // Bitcrusher for digital/robotic artifacts
+        const bitcrusher = new Tone.BitCrusher({
+            bits: 6,
+            wet: 0.02
+        });
+
+        // EQ to shape the robotic tone - boost mids, cut lows
+        const eq = new Tone.EQ3({
+            low: -6,
+            mid: 4,
+            high: 2,
+            lowFrequency: 250,
+            highFrequency: 4000
+        });
+
+        // Compressor to even out the sound
+        const compressor = new Tone.Compressor({
+            threshold: -20,
+            ratio: 6,
+            attack: 0.01,
+            release: 0.1
+        });
+
+        // Small metallic reverb
+        const reverb = new Tone.Reverb({
+            decay: 1.5,
+            wet: 0.45,
             preDelay: 0.01
-        }).toDestination();
+        });
         await reverb.generate();
+
+        // Feedback delay for robotic echo
+        const delay = new Tone.FeedbackDelay({
+            delayTime: 0.08,
+            feedback: 0.15,
+            wet: 0.5
+        });
+
+        // Chain: input -> pitchShift -> chorus -> phaser -> distortion ->
+        //        chebyshev -> bitcrusher -> eq -> compressor -> delay -> reverb -> output
+        effectsChain = {
+            input: pitchShift,
+            nodes: [pitchShift, chorus, phaser, distortion, chebyshev, bitcrusher, eq, compressor, delay, reverb]
+        };
+
+        // Connect the chain
+        pitchShift.connect(chorus);
+        chorus.connect(phaser);
+        phaser.connect(distortion);
+        distortion.connect(chebyshev);
+        chebyshev.connect(bitcrusher);
+        bitcrusher.connect(eq);
+        eq.connect(compressor);
+        compressor.connect(delay);
+        delay.connect(reverb);
+        reverb.toDestination();
     }
 
     // Create player and connect to effects chain
-    player = new Tone.Player(audioUrl).connect(reverb);
+    player = new Tone.Player(audioUrl).connect(effectsChain.input);
 
     // Wait for buffer to load then play
     await Tone.loaded();
