@@ -1,10 +1,15 @@
 import { loadTextToSpeech, loadVoiceStyle, writeWavFile } from './helper.js';
+import * as Tone from 'tone';
 
 // State
 let tts = null;
 let cfgs = null;
 let currentStyle = null;
 let currentStylePath = 'assets/voice_styles/M1.json';
+
+// Tone.js DSP chain
+let player = null;
+let reverb = null;
 
 // DOM Elements
 const statusBox = document.getElementById('status');
@@ -202,11 +207,36 @@ function displayResult(text, audioUrl, stats) {
 
     resultsDiv.insertAdjacentHTML('beforeend', resultHtml);
 
-    // Auto-play the audio
-    const audio = resultsDiv.querySelector('audio');
-    if (audio) {
-        audio.play().catch(e => console.log('Auto-play blocked:', e));
+    // Play through Tone.js DSP chain
+    playWithEffects(audioUrl);
+}
+
+async function playWithEffects(audioUrl) {
+    // Ensure Tone.js audio context is started (required after user interaction)
+    await Tone.start();
+
+    // Dispose previous player if exists
+    if (player) {
+        player.stop();
+        player.dispose();
     }
+
+    // Create reverb if not exists
+    if (!reverb) {
+        reverb = new Tone.Reverb({
+            decay: 2.5,
+            wet: 0.3,
+            preDelay: 0.01
+        }).toDestination();
+        await reverb.generate();
+    }
+
+    // Create player and connect to effects chain
+    player = new Tone.Player(audioUrl).connect(reverb);
+
+    // Wait for buffer to load then play
+    await Tone.loaded();
+    player.start();
 }
 
 function escapeHtml(text) {
