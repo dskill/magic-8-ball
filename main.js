@@ -10,6 +10,8 @@ let currentStylePath = 'assets/voice_styles/M1.json';
 // Tone.js DSP chain
 let player = null;
 let effectsChain = null;
+let vocoderCarrier = null;
+let vocoderSeq = null;
 
 // DOM Elements
 const statusBox = document.getElementById('status');
@@ -256,13 +258,13 @@ async function playWithEffects(audioUrl) {
         // Chebyshev waveshaper for harmonic richness
         const chebyshev = new Tone.Chebyshev({
             order: 30,
-            wet: 0.25
+            wet: 0.0
         });
 
         // Bitcrusher for digital/robotic artifacts
         const bitcrusher = new Tone.BitCrusher({
             bits: 6,
-            wet: 0.02
+            wet: 0.1
         });
 
         // EQ to shape the robotic tone - boost mids, cut lows
@@ -292,26 +294,155 @@ async function playWithEffects(audioUrl) {
 
         // Feedback delay for robotic echo
         const delay = new Tone.FeedbackDelay({
-            delayTime: 0.08,
+            delayTime: 0.04,
             feedback: 0.15,
-            wet: 0.5
+            wet: 0.2
         });
 
-        // Chain: input -> pitchShift -> chorus -> phaser -> distortion ->
-        //        chebyshev -> bitcrusher -> eq -> compressor -> delay -> reverb -> output
+        // ========== TRUE CHANNEL VOCODER ==========
+        // A vocoder works by:
+        // 1. Analyzing the voice (modulator) into frequency bands
+        // 2. Extracting the amplitude envelope of each band
+        // 3. Applying those envelopes to filter the carrier signal
+        // The result: carrier provides pitch, voice provides formants/timbre
+
+        // Create carrier synth
+        vocoderCarrier = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sawtooth' },
+            envelope: {
+                attack: 0.005,
+                decay: 0.1,
+                sustain: 1.0,
+                release: 0.1
+            },
+            volume: 0
+        });
+
+        // Musical pattern in D minor
+        const pattern = [
+            { time: '0:0:0', notes: ['D3', 'A3', 'D4'], duration: '4n' },
+            { time: '0:1:0', notes: ['F3', 'A3', 'D4'], duration: '8n' },
+            { time: '0:1:2', notes: ['A3', 'D4', 'F4'], duration: '8n' },
+            { time: '0:2:0', notes: ['D3', 'F3', 'A3'], duration: '4n' },
+            { time: '0:3:0', notes: ['A2', 'E3', 'A3'], duration: '8n' },
+            { time: '0:3:2', notes: ['D3', 'A3', 'D4'], duration: '8n' },
+            { time: '1:0:0', notes: ['Bb2', 'F3', 'Bb3'], duration: '4n' },
+            { time: '1:1:0', notes: ['D3', 'F3', 'Bb3'], duration: '8n' },
+            { time: '1:1:2', notes: ['F3', 'Bb3', 'D4'], duration: '8n' },
+            { time: '1:2:0', notes: ['Bb2', 'D3', 'F3'], duration: '4n' },
+            { time: '1:3:0', notes: ['C3', 'G3', 'C4'], duration: '4n' },
+            { time: '2:0:0', notes: ['G2', 'D3', 'G3', 'Bb3'], duration: '4n' },
+            { time: '2:1:0', notes: ['G3', 'Bb3', 'D4'], duration: '8n' },
+            { time: '2:1:2', notes: ['D3', 'G3', 'Bb3'], duration: '8n' },
+            { time: '2:2:0', notes: ['A2', 'E3', 'A3', 'C#4'], duration: '2n' },
+            { time: '3:0:0', notes: ['D3', 'A3', 'D4', 'F4'], duration: '2n' },
+            { time: '3:2:0', notes: ['D3', 'F3', 'A3'], duration: '4n' },
+            { time: '3:3:0', notes: ['A2', 'D3', 'F3', 'A3'], duration: '4n' },
+        ];
+
+        vocoderSeq = new Tone.Part((time, value) => {
+            vocoderCarrier.triggerAttackRelease(value.notes, value.duration, time);
+        }, pattern);
+        vocoderSeq.loop = true;
+        vocoderSeq.loopEnd = '4:0:0';
+
+        // Vocoder bands - focused on human voice range
+        // Fundamental: 85-255 Hz (male-female), Formants: 300-3500 Hz
+        const numBands = 24;
+        const bands = [];
+        const minFreq = 150;
+        const maxFreq = 1500;
+
+        // Create vocoder channel for each frequency band
+        for (let i = 0; i < numBands; i++) {
+            // Logarithmic frequency distribution
+            const freq = minFreq * Math.pow(maxFreq / minFreq, i / (numBands - 1));
+            const Q = 12; // Narrow bands for better resolution
+
+            // MODULATOR PATH (voice): bandpass -> envelope follower
+            const modFilter = new Tone.Filter({
+                frequency: freq,
+                type: 'bandpass',
+                Q: Q
+            });
+            const envelope = new Tone.Follower(0.005); // Fast follower
+            const envelopeGain = new Tone.Gain(1); // Boost envelope signal
+
+            // CARRIER PATH: bandpass -> gain (controlled by envelope)
+            const carrierFilter = new Tone.Filter({
+                frequency: freq,
+                type: 'bandpass',
+                Q: Q
+            });
+            const vca = new Tone.Gain(0); // VCA - voltage controlled amp
+
+            // Connect modulator analysis chain
+            modFilter.connect(envelope);
+            envelope.connect(envelopeGain);
+            envelopeGain.connect(vca.gain); // Envelope controls VCA gain
+
+            // Connect carrier synthesis chain
+            carrierFilter.connect(vca);
+
+            bands.push({
+                freq,
+                modFilter,
+                envelope,
+                envelopeGain,
+                carrierFilter,
+                vca
+            });
+        }
+
+        // Output mixer for all vocoder bands
+        const vocoderOut = new Tone.Gain(0.5);
+
+        // Connect all VCAs to output
+        bands.forEach(band => {
+            band.vca.connect(vocoderOut);
+        });
+
+        // Dry voice mix
+        const dryMix = new Tone.Gain(0.15);
+
+        // Carrier direct (for debugging - set to 0 normally)
+        const carrierDirect = new Tone.Gain(0).toDestination();
+        vocoderCarrier.connect(carrierDirect);
+
+        // Store vocoder bands
         effectsChain = {
             input: pitchShift,
+            bands,
+            vocoderOut,
+            dryMix,
             nodes: [pitchShift, chorus, phaser, distortion, chebyshev, bitcrusher, eq, compressor, delay, reverb]
         };
 
-        // Connect the chain
+        // Connect main effects chain (for voice processing before vocoder)
         pitchShift.connect(chorus);
         chorus.connect(phaser);
         phaser.connect(distortion);
         distortion.connect(chebyshev);
         chebyshev.connect(bitcrusher);
         bitcrusher.connect(eq);
-        eq.connect(compressor);
+
+        // Voice (after EQ) goes to all modulator filters
+        bands.forEach(band => {
+            eq.connect(band.modFilter);
+        });
+
+        // Carrier goes to all carrier filters
+        bands.forEach(band => {
+            vocoderCarrier.connect(band.carrierFilter);
+        });
+
+        // Also send some dry voice
+        eq.connect(dryMix);
+
+        // Vocoder output and dry mix go to compressor
+        vocoderOut.connect(compressor);
+        dryMix.connect(compressor);
+
         compressor.connect(delay);
         delay.connect(reverb);
         reverb.toDestination();
@@ -322,7 +453,22 @@ async function playWithEffects(audioUrl) {
 
     // Wait for buffer to load then play
     await Tone.loaded();
+
+    // Set tempo for the vocoder pattern
+    Tone.Transport.bpm.value = 90;
+
+    // Start the vocoder carrier sequence
+    vocoderSeq.start(0);
+    Tone.Transport.start();
+
+    // Start the voice
     player.start();
+
+    // Stop the vocoder when audio ends
+    player.onstop = () => {
+        Tone.Transport.stop();
+        vocoderSeq.stop();
+    };
 }
 
 function escapeHtml(text) {
