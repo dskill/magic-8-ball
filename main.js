@@ -502,12 +502,24 @@ function initializeLLM() {
                 break;
 
             case 'initiate':
+                if (e.data.file) {
+                    showStatus(`Downloading ${e.data.file}...`);
+                }
+                break;
+
             case 'progress':
+                // Progress reports loaded/total bytes
+                if (e.data.file && e.data.loaded !== undefined && e.data.total !== undefined) {
+                    const percent = Math.round((e.data.loaded / e.data.total) * 100);
+                    const loadedMB = (e.data.loaded / 1024 / 1024).toFixed(1);
+                    const totalMB = (e.data.total / 1024 / 1024).toFixed(1);
+                    showStatus(`Loading ${e.data.file}: ${loadedMB}/${totalMB} MB (${percent}%)`);
+                }
+                break;
+
             case 'done':
-                // Model loading progress
-                if (e.data.file && e.data.progress !== undefined) {
-                    const percent = Math.round(e.data.progress * 100);
-                    showStatus(`Loading ${e.data.file}: ${percent}%`);
+                if (e.data.file) {
+                    showStatus(`Loaded ${e.data.file}`);
                 }
                 break;
 
