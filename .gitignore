@@ -4,8 +4,6 @@ node_modules/
 # Build output
 dist/
 
-# Note: public/assets/ contains ONNX models needed for deployment
-
 # Editor
 .vscode/
 .idea/

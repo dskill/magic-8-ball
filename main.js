@@ -1,16 +1,13 @@
-import { loadTextToSpeech, loadVoiceStyle, writeWavFile } from './helper.js';
 import { startGame, restartGame, gameState, setPhase } from './tictactoe.js';
 import * as Tone from 'tone';
 
 // State
-let tts = null;
-let cfgs = null;
-let currentStyle = null;
-const BASE = import.meta.env.BASE_URL || '/';
-let currentStylePath = `${BASE}assets/voice_styles/M1.json`;
+let ttsWorker = null;
+let ttsReady = false;
 let systemReady = false;
 let speechQueue = [];
 let isSpeaking = false;
+let pendingSpeechResolve = null;
 
 // LLM State
 let llmWorker = null;
@@ -83,42 +80,19 @@ function setVoiceTranscript(text) {
 }
 
 async function initializeModels() {
-    updateLoadingStatus('Initializing ONNX Runtime...', 5);
+    updateLoadingStatus('Loading TTS model...', 5);
 
     try {
-        let sessionOptions = {};
-        let backend = 'webgpu';
+        // Load TTS (from HuggingFace, cached in IndexedDB)
+        await initializeTTS();
 
-        try {
-            sessionOptions = { executionProviders: ['webgpu'] };
-            const result = await loadTextToSpeech(`${BASE}assets/onnx`, sessionOptions, (name, current, total) => {
-                const progress = 5 + (current / total) * 60;
-                updateLoadingStatus(`Loading ${name} (${current}/${total})...`, progress);
-            });
-            tts = result.textToSpeech;
-            cfgs = result.cfgs;
-        } catch (e) {
-            console.log('WebGPU not available, falling back to WASM:', e);
-            backend = 'wasm';
-            sessionOptions = { executionProviders: ['wasm'] };
-            const result = await loadTextToSpeech(`${BASE}assets/onnx`, sessionOptions, (name, current, total) => {
-                const progress = 5 + (current / total) * 60;
-                updateLoadingStatus(`Loading ${name} (${current}/${total})...`, progress);
-            });
-            tts = result.textToSpeech;
-            cfgs = result.cfgs;
-        }
-
-        updateLoadingStatus('Loading voice style...', 70);
-        currentStyle = await loadVoiceStyle(currentStylePath);
-
-        updateLoadingStatus('Initializing audio effects...', 80);
+        updateLoadingStatus('Initializing audio effects...', 40);
         await initializeEffectsChain();
 
-        updateLoadingStatus('Loading AI model...', 85);
+        updateLoadingStatus('Loading AI model...', 55);
         await initializeLLM();
 
-        updateLoadingStatus('Loading speech recognition...', 95);
+        updateLoadingStatus('Loading speech recognition...', 80);
         await initializeWhisper();
 
         updateLoadingStatus('System ready!', 100);
@@ -137,6 +111,116 @@ async function initializeModels() {
         updateLoadingStatus(`Error: ${error.message}`, 0);
         setSystemStatus('ERROR');
     }
+}
+
+async function initializeTTS() {
+    return new Promise((resolve) => {
+        ttsWorker = new Worker(
+            new URL('./tts-worker.js', import.meta.url),
+            { type: 'module' }
+        );
+
+        ttsWorker.onmessage = (e) => {
+            const { status, data, audio, sampleRate, progress, file } = e.data;
+
+            if (status === 'ready') {
+                ttsReady = true;
+                console.log('TTS ready');
+                resolve();
+            } else if (status === 'loading') {
+                console.log('TTS loading:', data);
+                updateLoadingStatus(data || 'Loading TTS...', 10);
+            } else if (status === 'progress' || e.data.progress !== undefined) {
+                // Handle HuggingFace progress events
+                const pct = e.data.progress || 0;
+                const fileName = e.data.file || '';
+                updateLoadingStatus(`Loading ${fileName}...`, 5 + pct * 0.3);
+            } else if (status === 'complete' && pendingSpeechResolve) {
+                // TTS synthesis complete
+                handleTTSComplete(audio, sampleRate);
+            } else if (status === 'error') {
+                console.error('TTS error:', e.data.error);
+                if (pendingSpeechResolve) {
+                    pendingSpeechResolve();
+                    pendingSpeechResolve = null;
+                }
+            }
+        };
+
+        ttsWorker.postMessage({ type: 'load' });
+
+        // Timeout fallback (5 minutes)
+        setTimeout(() => {
+            if (!ttsReady) {
+                console.warn('TTS load timeout, continuing without');
+                resolve();
+            }
+        }, 300000);
+    });
+}
+
+async function handleTTSComplete(audio, sampleRate) {
+    try {
+        // Convert Float32Array to WAV
+        const wavData = float32ToWav(audio, sampleRate);
+        const blob = new Blob([wavData], { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(blob);
+
+        await playWithEffects(audioUrl);
+        URL.revokeObjectURL(audioUrl);
+    } catch (error) {
+        console.error('TTS playback failed:', error);
+    }
+
+    if (pendingSpeechResolve) {
+        pendingSpeechResolve();
+        pendingSpeechResolve = null;
+    }
+}
+
+/**
+ * Convert Float32Array audio to WAV format
+ */
+function float32ToWav(audioData, sampleRate) {
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * bitsPerSample / 8;
+    const blockAlign = numChannels * bitsPerSample / 8;
+    const dataSize = audioData.length * 2;
+
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    const writeString = (offset, string) => {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    const int16Data = new Int16Array(audioData.length);
+    for (let i = 0; i < audioData.length; i++) {
+        const clamped = Math.max(-1.0, Math.min(1.0, audioData[i]));
+        int16Data[i] = Math.floor(clamped * 32767);
+    }
+
+    const dataView = new Uint8Array(buffer, 44);
+    dataView.set(new Uint8Array(int16Data.buffer));
+
+    return buffer;
 }
 
 async function initializeEffectsChain() {
@@ -798,7 +882,7 @@ function clearConversationHistory() {
 }
 
 async function speak(text) {
-    if (!tts || !currentStyle || !systemReady) {
+    if (!ttsReady || !ttsWorker || !systemReady) {
         console.warn('TTS not ready');
         return;
     }
@@ -817,18 +901,11 @@ async function processQueue() {
     setVoiceTranscript(text);
 
     try {
-        const { wav, duration } = await tts.call(text, currentStyle, 2, 1.05, 0.3);
-
-        const sampleRate = cfgs.ae.sample_rate;
-        const expectedSamples = Math.floor(duration[0] * sampleRate);
-        const truncatedWav = wav.slice(0, expectedSamples);
-
-        const wavData = writeWavFile(truncatedWav, sampleRate);
-        const blob = new Blob([wavData], { type: 'audio/wav' });
-        const audioUrl = URL.createObjectURL(blob);
-
-        await playWithEffects(audioUrl);
-
+        // Send to TTS worker and wait for completion
+        await new Promise((resolve) => {
+            pendingSpeechResolve = resolve;
+            ttsWorker.postMessage({ type: 'synthesize', text, voice: 'M1' });
+        });
     } catch (error) {
         console.error('Speech generation failed:', error);
     }
