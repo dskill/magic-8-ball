@@ -4,8 +4,7 @@ node_modules/
 # Build output
 dist/
 
-# Supertonic models (large files from HuggingFace)
-assets/
+# Note: public/assets/ contains ONNX models needed for deployment
 
 # Editor
 .vscode/

@@ -6,7 +6,8 @@ import * as Tone from 'tone';
 let tts = null;
 let cfgs = null;
 let currentStyle = null;
-let currentStylePath = 'assets/voice_styles/M1.json';
+const BASE = import.meta.env.BASE_URL || '/';
+let currentStylePath = `${BASE}assets/voice_styles/M1.json`;
 let systemReady = false;
 let speechQueue = [];
 let isSpeaking = false;
@@ -88,7 +89,7 @@ async function initializeModels() {
 
         try {
             sessionOptions = { executionProviders: ['webgpu'] };
-            const result = await loadTextToSpeech('assets/onnx', sessionOptions, (name, current, total) => {
+            const result = await loadTextToSpeech(`${BASE}assets/onnx`, sessionOptions, (name, current, total) => {
                 const progress = 5 + (current / total) * 60;
                 updateLoadingStatus(`Loading ${name} (${current}/${total})...`, progress);
             });
@@ -98,7 +99,7 @@ async function initializeModels() {
             console.log('WebGPU not available, falling back to WASM:', e);
             backend = 'wasm';
             sessionOptions = { executionProviders: ['wasm'] };
-            const result = await loadTextToSpeech('assets/onnx', sessionOptions, (name, current, total) => {
+            const result = await loadTextToSpeech(`${BASE}assets/onnx`, sessionOptions, (name, current, total) => {
                 const progress = 5 + (current / total) * 60;
                 updateLoadingStatus(`Loading ${name} (${current}/${total})...`, progress);
             });
