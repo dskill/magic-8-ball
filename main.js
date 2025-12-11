@@ -54,9 +54,13 @@ const pttDuration = document.getElementById('pttDuration');
 const startOverlay = document.getElementById('startOverlay');
 const startLoadBtn = document.getElementById('startLoadBtn');
 
+// Track loading progress - only allow progress to increase, never decrease
+let currentLoadingProgress = 0;
+
 function updateLoadingStatus(message, progress = null) {
     loadingStatus.textContent = message;
-    if (progress !== null) {
+    if (progress !== null && progress > currentLoadingProgress) {
+        currentLoadingProgress = progress;
         loadingProgress.style.width = `${progress}%`;
     }
 }
@@ -1008,6 +1012,9 @@ document.addEventListener('keydown', async (e) => {
 startLoadBtn.addEventListener('click', async () => {
     startOverlay.classList.add('hidden');
     loadingOverlay.classList.remove('hidden');
+
+    // Reset progress tracker
+    currentLoadingProgress = 0;
 
     // Start AudioContext with user gesture
     await Tone.start();
