@@ -40,17 +40,19 @@
                     </div>
                 </div>
 
-                <div class="message-panel">
-                    <div class="panel-header">// TALK TO ROBOT</div>
-                    <input
-                        type="text"
-                        id="playerMessage"
-                        class="message-input"
-                        placeholder="Say something before your move..."
-                        maxlength="100"
-                        disabled
-                    />
-                    <div class="message-hint">Type a message, then click a cell</div>
+                <div class="ptt-panel">
+                    <div class="panel-header">// VOICE INPUT</div>
+                    <button id="pttButton" class="ptt-button ptt-idle">
+                        <span class="ptt-icon">🎤</span> PUSH TO TALK
+                    </button>
+                    <div class="ptt-info">
+                        <span id="pttStatus" class="ptt-status ptt-status-idle">INITIALIZING</span>
+                        <span id="pttDuration" class="ptt-duration"></span>
+                    </div>
+                    <div id="pttTranscript" class="ptt-transcript">
+                        Loading speech recognition...
+                    </div>
+                    <div class="ptt-hint">Hold SPACE or click button</div>
                 </div>
 
                 <div class="voice-panel">
@@ -72,12 +74,12 @@
                 <span class="control-desc">Place X</span>
             </div>
             <div class="control-group">
-                <span class="control-key">TYPE</span>
-                <span class="control-desc">Talk to Robot</span>
+                <span class="control-key">SPACE</span>
+                <span class="control-desc">Push to Talk</span>
             </div>
             <div class="control-group">
-                <span class="control-key">SPACE</span>
-                <span class="control-desc">Restart</span>
+                <span class="control-key">ESC</span>
+                <span class="control-desc">Restart (Game Over)</span>
             </div>
         </div>
 

@@ -106,7 +106,8 @@ body {
 
 .game-info-panel,
 .message-panel,
-.voice-panel {
+.voice-panel,
+.ptt-panel {
     padding: 15px;
     border-bottom: 1px solid #00ffff;
 }
@@ -187,6 +188,124 @@ body {
 .message-hint {
     font-size: 10px;
     color: #666;
+}
+
+/* Push-to-Talk Panel */
+.ptt-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ptt-button {
+    width: 100%;
+    padding: 15px 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    border: 2px solid #00ffff;
+    background: transparent;
+    color: #00ffff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.ptt-button:hover {
+    background: rgba(0, 255, 255, 0.1);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.ptt-button:active,
+.ptt-button.ptt-recording {
+    background: rgba(255, 0, 0, 0.2);
+    border-color: #ff0000;
+    color: #ff0000;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+    animation: pulse-recording 0.5s infinite;
+}
+
+.ptt-button.ptt-transcribing {
+    background: rgba(255, 255, 0, 0.1);
+    border-color: #ffff00;
+    color: #ffff00;
+    cursor: wait;
+}
+
+.ptt-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ptt-icon {
+    font-size: 16px;
+}
+
+@keyframes pulse-recording {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(255, 0, 0, 0.8);
+    }
+}
+
+.ptt-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ptt-status {
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border: 1px solid currentColor;
+}
+
+.ptt-status-idle {
+    color: #00ff00;
+}
+
+.ptt-status-recording {
+    color: #ff0000;
+    animation: blink 0.5s infinite;
+}
+
+.ptt-status-processing {
+    color: #ffff00;
+}
+
+.ptt-status-error {
+    color: #ff0000;
+}
+
+.ptt-duration {
+    font-size: 12px;
+    color: #ff0000;
+    font-weight: bold;
+}
+
+.ptt-transcript {
+    font-size: 11px;
+    color: #888;
+    line-height: 1.4;
+    min-height: 40px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #333;
+    word-wrap: break-word;
+}
+
+.ptt-hint {
+    font-size: 10px;
+    color: #666;
+    text-align: center;
 }
 
 /* Voice Panel */
@@ -470,7 +589,8 @@ body {
 
     .game-info-panel,
     .message-panel,
-    .voice-panel {
+    .voice-panel,
+    .ptt-panel {
         flex: 1;
         min-width: 200px;
         border-bottom: none;
@@ -479,6 +599,10 @@ body {
 
     .voice-panel {
         border-right: none;
+    }
+
+    .ptt-panel {
+        border-right: 1px solid #00ffff;
     }
 
     .game-screen {

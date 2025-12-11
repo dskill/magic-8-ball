@@ -15,6 +15,16 @@ let isSpeaking = false;
 let llmWorker = null;
 let llmReady = false;
 
+// Whisper/PTT State
+let whisperWorker = null;
+let whisperReady = false;
+let mediaRecorder = null;
+let audioChunks = [];
+let audioContext = null;
+let pttState = 'idle'; // 'idle' | 'recording' | 'transcribing'
+let currentTranscript = '';
+let recordingStartTime = null;
+
 // Tone.js DSP chain
 let player = null;
 let effectsChain = null;
@@ -36,7 +46,10 @@ const voiceTranscript = document.getElementById('voiceTranscript');
 const nameEntryOverlay = document.getElementById('nameEntryOverlay');
 const playerNameInput = document.getElementById('playerNameInput');
 const startGameBtn = document.getElementById('startGameBtn');
-const playerMessage = document.getElementById('playerMessage');
+const pttButton = document.getElementById('pttButton');
+const pttStatus = document.getElementById('pttStatus');
+const pttTranscript = document.getElementById('pttTranscript');
+const pttDuration = document.getElementById('pttDuration');
 
 function updateLoadingStatus(message, progress = null) {
     loadingStatus.textContent = message;
@@ -96,8 +109,11 @@ async function initializeModels() {
         updateLoadingStatus('Initializing audio effects...', 80);
         await initializeEffectsChain();
 
-        updateLoadingStatus('Loading AI model...', 90);
+        updateLoadingStatus('Loading AI model...', 85);
         await initializeLLM();
+
+        updateLoadingStatus('Loading speech recognition...', 95);
+        await initializeWhisper();
 
         updateLoadingStatus('System ready!', 100);
         systemReady = true;
@@ -359,6 +375,383 @@ async function initializeLLM() {
     });
 }
 
+async function initializeWhisper() {
+    return new Promise((resolve) => {
+        whisperWorker = new Worker(
+            new URL('./whisper-worker.js', import.meta.url),
+            { type: 'module' }
+        );
+
+        whisperWorker.onmessage = (e) => {
+            if (e.data.status === 'ready') {
+                whisperReady = true;
+                console.log('Whisper ready');
+                setPTTStatus('READY', 'idle');
+                updatePTTTranscript('Hold SPACE or click button to speak...');
+                resolve();
+            } else if (e.data.status === 'loading') {
+                console.log('Whisper loading:', e.data.data);
+            }
+        };
+
+        whisperWorker.postMessage({ type: 'load' });
+
+        // Timeout fallback
+        setTimeout(() => {
+            if (!whisperReady) {
+                console.warn('Whisper load timeout, continuing without');
+                setPTTStatus('UNAVAILABLE', 'error');
+                resolve();
+            }
+        }, 60000);
+    });
+}
+
+// ============================================
+// Audio Recording Functions
+// ============================================
+
+async function initializeAudioRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                channelCount: 1,
+                sampleRate: 16000,
+                echoCancellation: true,
+                noiseSuppression: true,
+            }
+        });
+
+        mediaRecorder = new MediaRecorder(stream, {
+            mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : 'audio/webm',
+        });
+
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                audioChunks.push(e.data);
+            }
+        };
+
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            audioChunks = [];
+            await processAudioForWhisper(audioBlob);
+        };
+
+        // Create AudioContext for decoding
+        audioContext = new AudioContext({ sampleRate: 16000 });
+
+        return true;
+    } catch (error) {
+        console.error('Microphone access denied:', error);
+        setPTTStatus('MIC ERROR', 'error');
+        return false;
+    }
+}
+
+async function processAudioForWhisper(audioBlob) {
+    setPTTState('transcribing');
+    setPTTStatus('PROCESSING...', 'processing');
+
+    try {
+        // Decode audio blob to ArrayBuffer
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+        // Get mono channel data
+        let audioData;
+        if (audioBuffer.numberOfChannels === 2) {
+            const left = audioBuffer.getChannelData(0);
+            const right = audioBuffer.getChannelData(1);
+            audioData = new Float32Array(left.length);
+            const SCALING_FACTOR = Math.sqrt(2);
+            for (let i = 0; i < left.length; i++) {
+                audioData[i] = SCALING_FACTOR * (left[i] + right[i]) / 2;
+            }
+        } else {
+            audioData = audioBuffer.getChannelData(0);
+        }
+
+        // Resample to 16kHz if needed
+        if (audioBuffer.sampleRate !== 16000) {
+            audioData = resampleAudio(audioData, audioBuffer.sampleRate, 16000);
+        }
+
+        // Send to Whisper worker
+        sendToWhisper(audioData);
+
+    } catch (error) {
+        console.error('Audio processing error:', error);
+        setPTTState('idle');
+        setPTTStatus('READY', 'idle');
+        updatePTTTranscript('Audio processing failed. Try again.');
+    }
+}
+
+function resampleAudio(audioData, fromRate, toRate) {
+    const ratio = fromRate / toRate;
+    const newLength = Math.round(audioData.length / ratio);
+    const result = new Float32Array(newLength);
+
+    for (let i = 0; i < newLength; i++) {
+        const srcIndex = i * ratio;
+        const srcIndexFloor = Math.floor(srcIndex);
+        const srcIndexCeil = Math.min(srcIndexFloor + 1, audioData.length - 1);
+        const t = srcIndex - srcIndexFloor;
+        result[i] = audioData[srcIndexFloor] * (1 - t) + audioData[srcIndexCeil] * t;
+    }
+
+    return result;
+}
+
+// ============================================
+// Whisper Worker Communication
+// ============================================
+
+function sendToWhisper(audioData) {
+    if (!whisperReady || !whisperWorker) {
+        console.warn('Whisper not ready');
+        handleTranscriptionComplete('');
+        return;
+    }
+
+    currentTranscript = '';
+
+    const messageHandler = (e) => {
+        const { status, text, error } = e.data;
+
+        if (status === 'update') {
+            currentTranscript = text;
+            updatePTTTranscript(text);
+        } else if (status === 'complete') {
+            whisperWorker.removeEventListener('message', messageHandler);
+            handleTranscriptionComplete(text);
+        } else if (status === 'error') {
+            whisperWorker.removeEventListener('message', messageHandler);
+            console.error('Whisper error:', error);
+            handleTranscriptionComplete('');
+        }
+    };
+
+    whisperWorker.addEventListener('message', messageHandler);
+    whisperWorker.postMessage({ type: 'transcribe', data: audioData });
+}
+
+function handleTranscriptionComplete(transcript) {
+    setPTTState('idle');
+
+    if (!transcript || transcript.trim().length === 0) {
+        setPTTStatus('READY', 'idle');
+        updatePTTTranscript('(no speech detected)');
+        return;
+    }
+
+    // Show final transcript
+    updatePTTTranscript(transcript);
+    setPTTStatus('READY', 'idle');
+
+    // Send to LLM and get robot response
+    sendToRobot(transcript);
+}
+
+function sendToRobot(message) {
+    if (!systemReady) {
+        speak("My systems are still warming up. Try again in a moment.");
+        return;
+    }
+
+    // Update the voice transcript to show what user said
+    setVoiceTranscript(`You said: "${message}"`);
+
+    // Free-form conversation - robot responds to whatever you say
+    const weakness = gameState.emotionalWeakness;
+    const emotionalContext = weakness
+        ? `Your secret emotional weakness is: ${weakness.name} (${weakness.description}).`
+        : '';
+
+    const gameContext = gameState.phase === 'playing'
+        ? `You are currently playing tic-tac-toe against ${gameState.playerName}. The game is in progress.`
+        : gameState.phase === 'game_over'
+        ? `The tic-tac-toe game just ended. ${gameState.winner === 'X' ? 'The human won.' : gameState.winner === 'O' ? 'You won.' : 'It was a draw.'}`
+        : '';
+
+    const prompt = `You are an arrogant robot with a retro computer personality. ${emotionalContext} ${gameContext}
+
+The human said: "${message}"
+
+Respond naturally in character. Keep it under 20 words:`;
+
+    console.log('[PTT] Sending to LLM:', message);
+
+    if (llmReady && llmWorker) {
+        generateWithLLM(prompt, (response) => {
+            if (response) {
+                // Parse thinking tags if present
+                let cleaned = response;
+                const thinkEnd = cleaned.indexOf('</think>');
+                if (thinkEnd !== -1) {
+                    cleaned = cleaned.substring(thinkEnd + 8).trim();
+                }
+                // Remove quotes
+                cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+                // Limit length
+                if (cleaned.length > 200) {
+                    const firstSentence = cleaned.match(/^[^.!?]+[.!?]/);
+                    cleaned = firstSentence ? firstSentence[0] : cleaned.substring(0, 200);
+                }
+                console.log('[PTT] Robot response:', cleaned);
+                if (cleaned) {
+                    speak(cleaned);
+                }
+            } else {
+                speak("I heard you, but my response circuits malfunctioned.");
+            }
+        });
+    } else {
+        speak("My language processors are offline. I cannot respond.");
+    }
+}
+
+// ============================================
+// PTT State Management
+// ============================================
+
+function setPTTState(state) {
+    pttState = state;
+    updatePTTUI();
+}
+
+function setPTTStatus(text, mode = 'idle') {
+    if (pttStatus) {
+        pttStatus.textContent = text;
+        pttStatus.className = 'ptt-status ptt-status-' + mode;
+    }
+}
+
+function updatePTTTranscript(text) {
+    if (pttTranscript) {
+        pttTranscript.textContent = text || 'Hold SPACE or click button to speak...';
+    }
+}
+
+function updatePTTUI() {
+    if (pttButton) {
+        pttButton.classList.remove('ptt-idle', 'ptt-recording', 'ptt-transcribing');
+        pttButton.classList.add('ptt-' + pttState);
+
+        switch (pttState) {
+            case 'idle':
+                pttButton.innerHTML = '<span class="ptt-icon">🎤</span> PUSH TO TALK';
+                break;
+            case 'recording':
+                pttButton.innerHTML = '<span class="ptt-icon">🔴</span> LISTENING...';
+                break;
+            case 'transcribing':
+                pttButton.innerHTML = '<span class="ptt-icon">⏳</span> PROCESSING...';
+                break;
+        }
+    }
+}
+
+async function startRecording() {
+    if (pttState !== 'idle') return;
+    if (!whisperReady) {
+        updatePTTTranscript('Speech recognition not ready yet...');
+        return;
+    }
+
+    if (!mediaRecorder) {
+        const success = await initializeAudioRecording();
+        if (!success) return;
+    }
+
+    audioChunks = [];
+    recordingStartTime = Date.now();
+    mediaRecorder.start(100);
+
+    setPTTState('recording');
+    setPTTStatus('LISTENING', 'recording');
+    updatePTTTranscript('Speak now...');
+
+    updateRecordingDuration();
+}
+
+function stopRecording() {
+    if (pttState !== 'recording') return;
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    recordingStartTime = null;
+    if (pttDuration) {
+        pttDuration.textContent = '';
+    }
+}
+
+function updateRecordingDuration() {
+    if (pttState !== 'recording' || !recordingStartTime) return;
+
+    const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+    if (pttDuration) {
+        pttDuration.textContent = `${elapsed}s`;
+    }
+
+    requestAnimationFrame(updateRecordingDuration);
+}
+
+// ============================================
+// PTT Event Listeners
+// ============================================
+
+function setupPTTListeners() {
+    // Spacebar push-to-talk
+    document.addEventListener('keydown', (e) => {
+        if (e.key === ' ' && pttState === 'idle') {
+            // Don't trigger if typing in an input
+            if (document.activeElement?.tagName === 'INPUT') return;
+            // Don't trigger during game over (let existing restart handler work)
+            if (gameState.phase === 'game_over') return;
+
+            e.preventDefault();
+            startRecording();
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.key === ' ' && pttState === 'recording') {
+            e.preventDefault();
+            stopRecording();
+        }
+    });
+
+    // Button handlers
+    if (pttButton) {
+        // Mouse
+        pttButton.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            startRecording();
+        });
+        pttButton.addEventListener('mouseup', (e) => {
+            e.preventDefault();
+            stopRecording();
+        });
+        pttButton.addEventListener('mouseleave', () => {
+            if (pttState === 'recording') stopRecording();
+        });
+
+        // Touch
+        pttButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startRecording();
+        });
+        pttButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopRecording();
+        });
+    }
+}
+
 function generateWithLLM(prompt, onComplete) {
     if (!llmReady || !llmWorker) {
         onComplete(null);
@@ -464,7 +857,9 @@ function hideNameEntry() {
 function launchGame(playerName) {
     hideNameEntry();
     setSystemStatus('ACTIVE');
-    playerMessage.disabled = false;
+
+    // Setup PTT listeners
+    setupPTTListeners();
 
     // Start background music loop (runs continuously)
     Tone.Transport.bpm.value = 90;
