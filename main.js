@@ -54,6 +54,8 @@ const pttButton = document.getElementById('pttButton');
 const pttStatus = document.getElementById('pttStatus');
 const pttTranscript = document.getElementById('pttTranscript');
 const pttDuration = document.getElementById('pttDuration');
+const startOverlay = document.getElementById('startOverlay');
+const startLoadBtn = document.getElementById('startLoadBtn');
 
 function updateLoadingStatus(message, progress = null) {
     loadingStatus.textContent = message;
@@ -138,7 +140,7 @@ async function initializeModels() {
 }
 
 async function initializeEffectsChain() {
-    await Tone.start();
+    // Tone.start() already called by user gesture in startLoadBtn handler
 
     // Pitch shift for robotic deepness
     const pitchShift = new Tone.PitchShift({
@@ -369,13 +371,13 @@ async function initializeLLM() {
 
         llmWorker.postMessage({ type: 'load' });
 
-        // Timeout fallback in case LLM fails to load
+        // Timeout fallback in case LLM fails to load (5 minutes for slow connections)
         setTimeout(() => {
             if (!llmReady) {
                 console.warn('LLM load timeout, continuing without');
                 resolve();
             }
-        }, 30000);
+        }, 300000);
     });
 }
 
@@ -400,14 +402,14 @@ async function initializeWhisper() {
 
         whisperWorker.postMessage({ type: 'load' });
 
-        // Timeout fallback
+        // Timeout fallback (5 minutes for slow connections)
         setTimeout(() => {
             if (!whisperReady) {
                 console.warn('Whisper load timeout, continuing without');
                 setPTTStatus('UNAVAILABLE', 'error');
                 resolve();
             }
-        }, 60000);
+        }, 300000);
     });
 }
 
@@ -924,5 +926,15 @@ document.addEventListener('keydown', async (e) => {
     }
 });
 
-// Initialize on load
-initializeModels();
+// Wait for user to click start button before initializing
+// This is required for AudioContext to work (needs user gesture)
+startLoadBtn.addEventListener('click', async () => {
+    startOverlay.classList.add('hidden');
+    loadingOverlay.classList.remove('hidden');
+
+    // Start AudioContext with user gesture
+    await Tone.start();
+    console.log('AudioContext started after user gesture');
+
+    initializeModels();
+});

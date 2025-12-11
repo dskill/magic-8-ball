@@ -375,6 +375,69 @@ body {
     font-size: 12px;
 }
 
+/* Start Overlay - requires user click */
+.start-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1001;
+}
+
+.start-overlay.hidden {
+    display: none;
+}
+
+.start-content {
+    text-align: center;
+}
+
+.start-title {
+    font-size: 36px;
+    letter-spacing: 6px;
+    margin-bottom: 10px;
+    color: #00ffff;
+    text-shadow: 0 0 20px #00ffff;
+}
+
+.start-subtitle {
+    font-size: 14px;
+    letter-spacing: 4px;
+    color: #666;
+    margin-bottom: 50px;
+}
+
+.start-load-button {
+    background: transparent;
+    border: 2px solid #00ffff;
+    color: #00ffff;
+    font-family: 'Courier New', monospace;
+    font-size: 18px;
+    padding: 15px 40px;
+    cursor: pointer;
+    letter-spacing: 3px;
+    transition: all 0.3s;
+    text-shadow: 0 0 10px #00ffff;
+}
+
+.start-load-button:hover {
+    background: #00ffff;
+    color: #000;
+    box-shadow: 0 0 30px #00ffff;
+}
+
+.start-hint {
+    margin-top: 30px;
+    font-size: 11px;
+    color: #444;
+    letter-spacing: 1px;
+}
+
 /* Loading Overlay */
 .loading-overlay {
     position: fixed;

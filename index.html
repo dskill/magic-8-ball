@@ -83,7 +83,17 @@
             </div>
         </div>
 
-        <div class="loading-overlay" id="loadingOverlay">
+        <!-- Start overlay - requires user interaction before loading -->
+        <div class="start-overlay" id="startOverlay">
+            <div class="start-content">
+                <div class="start-title">TIC-TAC-TOE.EXE</div>
+                <div class="start-subtitle">NEURAL INTERFACE v2.0</div>
+                <button id="startLoadBtn" class="start-load-button">[ INITIALIZE SYSTEM ]</button>
+                <div class="start-hint">Click to load AI models (~250MB)</div>
+            </div>
+        </div>
+
+        <div class="loading-overlay hidden" id="loadingOverlay">
             <div class="loading-content">
                 <div class="loading-title">INITIALIZING SYSTEMS</div>
                 <div class="loading-bar">
