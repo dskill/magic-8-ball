@@ -76,7 +76,7 @@ async function generate(messages) {
     const inputs = tokenizer.apply_chat_template(messages, {
         add_generation_prompt: true,
         return_dict: true,
-        // Thinking mode helps generate varied responses instead of copying examples
+        enable_thinking: false,
     });
 
     let startTime;
@@ -100,7 +100,7 @@ async function generate(messages) {
 
     const outputs = await model.generate({
         ...inputs,
-        max_new_tokens: 512,  // Room for thinking + response
+        max_new_tokens: 512,
         do_sample: true,
         temperature: 0.7,
         streamer,

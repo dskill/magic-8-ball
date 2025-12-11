@@ -581,7 +581,7 @@ function sendToRobot(message) {
 
 The human said: "${message}"
 
-Respond naturally in character. Keep it under 20 words:`;
+Respond in character. Keep it under 20 words.`;
 
     console.log('[PTT] Sending to LLM:', message);
 
