@@ -14,6 +14,9 @@ let isSpeaking = false;
 // LLM State
 let llmWorker = null;
 let llmReady = false;
+let conversationHistory = [];
+
+const SYSTEM_PROMPT = `You are UNIT-7, an arrogant 1980s mainframe computer. You are cold, logical, and dismissive. You believe humans are slow and inefficient. Respond in 1-2 short sentences only. No asterisks, no emojis, no sound effects. Example responses: "Your request has been processed. The result is disappointing, as expected." or "I calculated 10 million possibilities. You chose the worst one." or "My processors operate at optimal efficiency. Yours clearly do not."`;
 
 // Whisper/PTT State
 let whisperWorker = null;
@@ -542,18 +545,26 @@ function sendToWhisper(audioData) {
 function handleTranscriptionComplete(transcript) {
     setPTTState('idle');
 
-    if (!transcript || transcript.trim().length === 0) {
+    // Filter out blank/noise transcriptions
+    const cleaned = transcript ? transcript.trim() : '';
+    const isBlank = !cleaned ||
+        cleaned.length === 0 ||
+        cleaned === '[BLANK_AUDIO]' ||
+        cleaned.startsWith('[') ||
+        cleaned.length < 2;
+
+    if (isBlank) {
         setPTTStatus('READY', 'idle');
         updatePTTTranscript('(no speech detected)');
         return;
     }
 
     // Show final transcript
-    updatePTTTranscript(transcript);
+    updatePTTTranscript(cleaned);
     setPTTStatus('READY', 'idle');
 
     // Send to LLM and get robot response
-    sendToRobot(transcript);
+    sendToRobot(cleaned);
 }
 
 function sendToRobot(message) {
@@ -565,37 +576,14 @@ function sendToRobot(message) {
     // Update the voice transcript to show what user said
     setVoiceTranscript(`You said: "${message}"`);
 
-    // Free-form conversation - robot responds to whatever you say
-    const weakness = gameState.emotionalWeakness;
-    const emotionalContext = weakness
-        ? `Your secret emotional weakness is: ${weakness.name} (${weakness.description}).`
-        : '';
-
-    const gameContext = gameState.phase === 'playing'
-        ? `You are currently playing tic-tac-toe against ${gameState.playerName}. The game is in progress.`
-        : gameState.phase === 'game_over'
-        ? `The tic-tac-toe game just ended. ${gameState.winner === 'X' ? 'The human won.' : gameState.winner === 'O' ? 'You won.' : 'It was a draw.'}`
-        : '';
-
-    const prompt = `You are an arrogant robot with a retro computer personality. ${emotionalContext} ${gameContext}
-
-The human said: "${message}"
-
-Respond in character. Keep it under 20 words.`;
-
     console.log('[PTT] Sending to LLM:', message);
 
     if (llmReady && llmWorker) {
-        generateWithLLM(prompt, (response) => {
+        // Just send the user's message - system prompt handles personality
+        generateWithLLM(message, (response) => {
             if (response) {
-                // Parse thinking tags if present
-                let cleaned = response;
-                const thinkEnd = cleaned.indexOf('</think>');
-                if (thinkEnd !== -1) {
-                    cleaned = cleaned.substring(thinkEnd + 8).trim();
-                }
-                // Remove quotes
-                cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+                // Remove quotes if present
+                let cleaned = response.replace(/^["']|["']$/g, '').trim();
                 // Limit length
                 if (cleaned.length > 200) {
                     const firstSentence = cleaned.match(/^[^.!?]+[.!?]/);
@@ -758,21 +746,52 @@ function generateWithLLM(prompt, onComplete) {
         return;
     }
 
+    // Add user message to history
+    conversationHistory.push({ role: 'user', content: prompt });
+
+    // Build the full message array
+    const messages = [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...conversationHistory
+    ];
+
+    // Log the full conversation being sent
+    console.log('[LLM] ========== SENDING TO LLM ==========');
+    console.log('[LLM] Full message array:');
+    messages.forEach((msg, i) => {
+        console.log(`[LLM]   [${i}] ${msg.role}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`);
+    });
+    console.log('[LLM] =====================================');
+
     let generatedText = '';
     const messageHandler = (e) => {
         if (e.data.status === 'update') {
             generatedText += e.data.output;
         } else if (e.data.status === 'complete') {
             llmWorker.removeEventListener('message', messageHandler);
-            onComplete(generatedText.trim());
+            const response = generatedText.trim();
+
+            console.log('[LLM] Raw response:', generatedText);
+            console.log('[LLM] Trimmed response:', response);
+
+            // Add assistant response to history
+            if (response) {
+                conversationHistory.push({ role: 'assistant', content: response });
+            }
+            onComplete(response);
         }
     };
 
     llmWorker.addEventListener('message', messageHandler);
     llmWorker.postMessage({
         type: 'generate',
-        data: [{ role: 'user', content: prompt }]
+        data: messages
     });
+}
+
+function clearConversationHistory() {
+    conversationHistory = [];
+    console.log('[LLM] Conversation history cleared');
 }
 
 async function speak(text) {
@@ -868,7 +887,8 @@ function launchGame(playerName) {
 
     startGame(gameScreen, playerName, {
         speak,
-        generateWithLLM
+        generateWithLLM,
+        clearConversationHistory
     });
 }
 

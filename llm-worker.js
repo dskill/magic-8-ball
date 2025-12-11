@@ -103,6 +103,9 @@ async function generate(messages) {
         max_new_tokens: 512,
         do_sample: true,
         temperature: 0.7,
+        top_p: 0.95,
+        top_k: 50,
+        repetition_penalty: 1.2,
         streamer,
         stopping_criteria,
     });
