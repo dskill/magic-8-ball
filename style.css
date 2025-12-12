@@ -90,15 +90,12 @@ body {
 }
 
 .game-screen {
-    font-family: 'Courier New', monospace;
-    font-size: 20px;
-    line-height: 1.4;
-    letter-spacing: 2px;
-    margin: 0;
-    color: #00ffff;
-    white-space: pre;
-    overflow: hidden;
-    text-align: center;
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 640px;
+    max-height: 400px;
+    background: #000;
 }
 
 /* Sidebar */
@@ -441,6 +438,57 @@ body {
     font-size: 11px;
     color: #444;
     letter-spacing: 1px;
+}
+
+/* Start Form */
+.start-form {
+    margin-bottom: 30px;
+}
+
+.start-input-group {
+    margin-bottom: 15px;
+}
+
+.start-label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #666;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.start-input {
+    width: 100%;
+    max-width: 300px;
+    background: #111;
+    border: 1px solid #00ffff;
+    color: #00ffff;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    padding: 10px 15px;
+    text-align: center;
+    outline: none;
+}
+
+.start-input:focus {
+    border-color: #ff00ff;
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+}
+
+.start-input::placeholder {
+    color: #444;
+}
+
+.start-load-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.start-load-button:disabled:hover {
+    background: transparent;
+    color: #00ffff;
+    box-shadow: none;
 }
 
 /* Loading Overlay */

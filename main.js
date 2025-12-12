@@ -1,4 +1,4 @@
-import { startGame, restartGame, gameState, setPhase, handleDirection, getPhase } from './game.js';
+import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion, setAnswer, resetQuestion, pickRandomResponse } from './magic8ball.js';
 import * as Tone from 'tone';
 
 // State
@@ -34,7 +34,7 @@ let bgMusicGain = null;
 
 // DOM Elements
 const systemStatus = document.getElementById('systemStatus');
-const gameScreen = document.getElementById('gameScreen');
+const shaderCanvas = document.getElementById('shaderCanvas');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingProgress = document.getElementById('loadingProgress');
 const loadingStatus = document.getElementById('loadingStatus');
@@ -43,6 +43,7 @@ const voiceStatus = document.getElementById('voiceStatus');
 const voiceTranscript = document.getElementById('voiceTranscript');
 const nameEntryOverlay = document.getElementById('nameEntryOverlay');
 const playerNameInput = document.getElementById('playerNameInput');
+const playerBirthdayInput = document.getElementById('playerBirthdayInput');
 const startGameBtn = document.getElementById('startGameBtn');
 const pttButton = document.getElementById('pttButton');
 const pttStatus = document.getElementById('pttStatus');
@@ -51,6 +52,12 @@ const pttDuration = document.getElementById('pttDuration');
 const startOverlay = document.getElementById('startOverlay');
 const startLoadBtn = document.getElementById('startLoadBtn');
 const textInput = document.getElementById('textInput');
+const seekerName = document.getElementById('seekerName');
+const seekerZodiac = document.getElementById('seekerZodiac');
+
+// Magic 8 Ball state
+let currentResponseCategory = null;
+let thinkingTimeout = null;
 
 // Track loading progress - only allow progress to increase, never decrease
 let currentLoadingProgress = 0;
@@ -101,11 +108,11 @@ async function initializeModels() {
         systemReady = true;
         setSystemStatus('READY');
         setVoiceStatus('ONLINE');
-        setVoiceTranscript('Enter your name to begin...');
+        setVoiceTranscript('The oracle is ready...');
 
         setTimeout(() => {
             hideLoading();
-            launchGame();
+            launchOracle();
         }, 500);
 
     } catch (error) {
@@ -231,7 +238,7 @@ async function initializeEffectsChain() {
     // Pitch shift for robotic deepness
     const pitchShift = new Tone.PitchShift({
         pitch: -2,
-        windowSize: 0.05,
+        windowSize: 0.1,
         delayTime: 0,
         feedback: 0
     });
@@ -255,13 +262,13 @@ async function initializeEffectsChain() {
     // Subtle distortion
     const distortion = new Tone.Distortion({
         distortion: 0.15,
-        wet: 0.1
+        wet: 0.0
     });
 
     // Bitcrusher for digital artifacts
     const bitcrusher = new Tone.BitCrusher({
         bits: 6,
-        wet: 0.1
+        wet: 0.0
     });
 
     // EQ to shape the robotic tone
@@ -283,16 +290,16 @@ async function initializeEffectsChain() {
 
     // Metallic reverb
     const reverb = new Tone.Reverb({
-        decay: 1.5,
+        decay: 3.5,
         wet: 0.45,
-        preDelay: 0.01
+        preDelay: 0.11
     });
     await reverb.generate();
 
     // Feedback delay
     const delay = new Tone.FeedbackDelay({
-        delayTime: 0.04,
-        feedback: 0.15,
+        delayTime: 0.1,
+        feedback: 0.45,
         wet: 0.2
     });
 
@@ -305,29 +312,26 @@ async function initializeEffectsChain() {
             sustain: 1.0,
             release: 0.1
         },
-        volume: 0
+        volume: 1
     });
 
-    // D minor pattern for vocoder
+    // E Phrygian pattern for vocoder - prophecy/oracle vibe
     const pattern = [
-        { time: '0:0:0', notes: ['D3', 'A3', 'D4'], duration: '4n' },
-        { time: '0:1:0', notes: ['F3', 'A3', 'D4'], duration: '8n' },
-        { time: '0:1:2', notes: ['A3', 'D4', 'F4'], duration: '8n' },
-        { time: '0:2:0', notes: ['D3', 'F3', 'A3'], duration: '4n' },
-        { time: '0:3:0', notes: ['A2', 'E3', 'A3'], duration: '8n' },
-        { time: '0:3:2', notes: ['D3', 'A3', 'D4'], duration: '8n' },
-        { time: '1:0:0', notes: ['Bb2', 'F3', 'Bb3'], duration: '4n' },
-        { time: '1:1:0', notes: ['D3', 'F3', 'Bb3'], duration: '8n' },
-        { time: '1:1:2', notes: ['F3', 'Bb3', 'D4'], duration: '8n' },
-        { time: '1:2:0', notes: ['Bb2', 'D3', 'F3'], duration: '4n' },
-        { time: '1:3:0', notes: ['C3', 'G3', 'C4'], duration: '4n' },
-        { time: '2:0:0', notes: ['G2', 'D3', 'G3', 'Bb3'], duration: '4n' },
-        { time: '2:1:0', notes: ['G3', 'Bb3', 'D4'], duration: '8n' },
-        { time: '2:1:2', notes: ['D3', 'G3', 'Bb3'], duration: '8n' },
-        { time: '2:2:0', notes: ['A2', 'E3', 'A3', 'C#4'], duration: '2n' },
-        { time: '3:0:0', notes: ['D3', 'A3', 'D4', 'F4'], duration: '2n' },
-        { time: '3:2:0', notes: ['D3', 'F3', 'A3'], duration: '4n' },
-        { time: '3:3:0', notes: ['A2', 'D3', 'F3', 'A3'], duration: '4n' },
+        // Ominous drone on E with the characteristic b2 (F)
+        { time: '0:0:0', notes: ['E2', 'B2', 'E3'], duration: '2n' },
+        { time: '0:2:0', notes: ['E2', 'B2', 'E3', 'B3'], duration: '4n' },
+        { time: '0:3:0', notes: ['F2', 'C3', 'F3'], duration: '4n' },  // bII - the prophecy chord
+        // Rising tension
+        { time: '1:0:0', notes: ['E2', 'B2', 'E3', 'G3'], duration: '2n.' },
+        { time: '1:3:0', notes: ['F2', 'A2', 'C3', 'F3'], duration: '4n' },  // bII major
+        // Descent into mystery
+        { time: '2:0:0', notes: ['D2', 'A2', 'D3', 'F3'], duration: '4n' },
+        { time: '2:1:0', notes: ['C2', 'G2', 'C3', 'E3'], duration: '4n' },
+        { time: '2:2:0', notes: ['F2', 'C3', 'F3', 'A3'], duration: '2n' },  // bII lingering
+        // Resolution to the oracle tone
+        { time: '3:0:0', notes: ['E2', 'B2', 'E3'], duration: '2n' },
+        { time: '3:2:0', notes: ['E2', 'E3', 'B3', 'E4'], duration: '4n' },
+        { time: '3:3:0', notes: ['F2', 'C3', 'F3'], duration: '4n' },  // end on bII for unresolved prophecy feel
     ];
 
     vocoderSeq = new Tone.Part((time, value) => {
@@ -644,6 +648,7 @@ function handleTranscriptionComplete(transcript) {
 
     if (isBlank) {
         setPTTStatus('READY', 'idle');
+        setPhase('idle'); // Reset ball state too
         updatePTTTranscript('(no speech detected)');
         return;
     }
@@ -652,31 +657,39 @@ function handleTranscriptionComplete(transcript) {
     updatePTTTranscript(cleaned);
     setPTTStatus('READY', 'idle');
 
-    // Send player's message to the robot
-    sendToRobot(cleaned);
+    // Ask the Magic 8 Ball
+    askQuestion(cleaned);
 }
 
 /**
- * Send player's message to the robot and let it decide what to say/do
+ * Ask the Magic 8 Ball a question
  */
-function sendToRobot(playerMessage) {
-    if (getPhase() === 'game_over' || getPhase() === 'win') {
-        speak("Press R to restart the game!");
+function askQuestion(question) {
+    if (getPhase() !== 'idle') {
         return;
     }
 
-    if (getPhase() !== 'playing') {
-        return;
-    }
-
-    // Interrupt any current speech immediately
+    // Interrupt any current speech
     interruptSpeech();
 
-    // Update the voice transcript to show what user said
-    setVoiceTranscript(`You: "${playerMessage}"`);
+    // Set the question
+    setQuestion(question);
+    setPhase('thinking');
 
-    // Ask the LLM to respond - the robot will move if it says a direction word
-    generateRobotResponse(playerMessage);
+    // Update voice transcript
+    setVoiceTranscript(`Question: "${question}"`);
+
+    // Pick random response category
+    const response = pickRandomResponse();
+    currentResponseCategory = response;
+
+    // Generate a thinking quip via LLM, then after ~5 seconds generate the prophecy
+    generateThinkingQuip(() => {
+        // After the quip is spoken, wait a bit then generate prophecy
+        thinkingTimeout = setTimeout(() => {
+            generateProphecy(question, response);
+        }, 3000); // 3 more seconds of "thinking" after quip
+    });
 }
 
 /**
@@ -701,45 +714,28 @@ function interruptSpeech() {
 }
 
 /**
- * Parse a direction from text (checks robot's response)
+ * Generate a short thinking quip via LLM
  */
-function parseDirection(text) {
-    const lower = text.toLowerCase();
-    // Check for direction words - the robot must say these to move
-    if (lower.includes('up')) return 'up';
-    if (lower.includes('down')) return 'down';
-    if (lower.includes('left')) return 'left';
-    if (lower.includes('right')) return 'right';
-    return null;
-}
-
-/**
- * Generate robot response to player's message
- * The robot moves ONLY if its response contains a direction word
- */
-function generateRobotResponse(playerMessage) {
+function generateThinkingQuip(onComplete) {
     if (!llmReady || !llmWorker) {
-        // Fallback - random silly response without moving
+        // Fallback quips
         const fallbacks = [
-            "Beep boop! I'm thinking...",
-            "Hmm, interesting human noises!",
-            "My circuits are confused!",
-            "What was that? I wasn't listening!",
+            "Consulting the void...",
+            "The spirits stir...",
+            "Calculating destiny...",
         ];
         speak(fallbacks[Math.floor(Math.random() * fallbacks.length)]);
+        setTimeout(onComplete, 2000);
         return;
     }
 
-    // Prompt that encourages the robot to sometimes say direction words
-    const prompt = `"${playerMessage}"`;
+    const prompt = `Say a short mystical phrase (5-15 words) as if you are a fortune teller concentrating.`;
 
     const messages = [{ role: 'user', content: prompt }];
 
-    // Log the full LLM request
-    console.log('[LLM] ========== SENDING TO LLM ==========');
-    console.log('[LLM] Player said:', playerMessage);
-    console.log('[LLM] Full prompt:', prompt);
-    console.log('[LLM] =====================================');
+    console.log('[LLM] Generating thinking quip...');
+    console.log('[LLM] Thinking prompt:');
+    console.log(prompt);
 
     let generatedText = '';
     const messageHandler = (e) => {
@@ -747,49 +743,93 @@ function generateRobotResponse(playerMessage) {
             generatedText += e.data.output;
         } else if (e.data.status === 'complete') {
             llmWorker.removeEventListener('message', messageHandler);
-            let response = generatedText.trim();
+            let quip = generatedText.trim();
 
-            console.log('[LLM] ========== LLM RESPONSE ==========');
-            console.log('[LLM] Raw response:', generatedText);
-            console.log('[LLM] Cleaned response:', response);
-            const direction = parseDirection(response);
-            console.log('[LLM] Detected direction:', direction || '(none - robot stays put)');
-            console.log('[LLM] ====================================');
 
-            // Clean up response
-            response = response.replace(/^["']|["']$/g, '').trim();
-            if (response.length > 200) {
-                const firstSentence = response.match(/^[^.!?]+[.!?]/);
-                response = firstSentence ? firstSentence[0] : response.substring(0, 200);
-            }
-
-            if (response) {
-                // Check if the robot said a direction - if so, it moves!
-                const direction = parseDirection(response);
-
-                if (direction && getPhase() === 'playing') {
-                    // Robot said a direction - move it!
-                    const result = handleDirection(direction);
-
-                    // Modify response based on what happened
-                    if (result.event === 'wall_hit') {
-                        response += " ...OW! That was a wall!";
-                    } else if (result.event === 'bomb_hit') {
-                        response += " ...BOOM! Oh no, a bomb!";
-                    } else if (result.event === 'pellet_collected') {
-                        response += " Yum, a pellet!";
-                    } else if (result.event === 'win') {
-                        response += " I GOT THEM ALL! I WIN!";
-                    }
-                }
-
-                speak(response);
-            }
+            console.log('[LLM] Thinking quip:', quip);
+            speak(quip);
+            setTimeout(onComplete, 2000); // Wait for TTS to finish
         }
     };
 
     llmWorker.addEventListener('message', messageHandler);
     llmWorker.postMessage({ type: 'generate', data: messages });
+}
+
+/**
+ * Generate the prophecy response
+ */
+function generateProphecy(question, response) {
+    setPhase('responding');
+
+    if (!llmReady || !llmWorker) {
+        // Fallback
+        const prophecy = `${response.phrase}... The cosmic void reveals your answer.`;
+        finishProphecy(prophecy);
+        return;
+    }
+
+    const prompt = `You are a mystical Magic 8 Ball oracle. Someone asked: "${question}"
+
+Your answer must start with "${response.phrase}" and then add a mysterious prophecy.
+
+Example: "Without a doubt... the stars align in your favor, seeker of truth."
+Example: "Very doubtful... darkness clouds your path, tread carefully ahead."
+
+Your response (start with "${response.phrase}"):`;
+
+    const messages = [{ role: 'user', content: prompt }];
+
+    console.log('[LLM] ========== GENERATING PROPHECY ==========');
+    console.log('[LLM] Question:', question);
+    console.log('[LLM] Category:', response.category, '-', response.phrase);
+    console.log('[LLM] Full prompt being sent:');
+    console.log(prompt);
+    console.log('[LLM] ==========================================');
+
+    let generatedText = '';
+    const messageHandler = (e) => {
+        if (e.data.status === 'update') {
+            generatedText += e.data.output;
+        } else if (e.data.status === 'complete') {
+            llmWorker.removeEventListener('message', messageHandler);
+            let prophecy = generatedText.trim();
+
+            // Clean up
+            prophecy = prophecy.replace(/^["']|["']$/g, '').trim();
+
+            // Make sure it starts with the category phrase
+            if (!prophecy.toLowerCase().startsWith(response.phrase.toLowerCase())) {
+                prophecy = `${response.phrase}... ${prophecy}`;
+            }
+
+            // Truncate if too long
+            if (prophecy.length > 150) {
+                const firstSentence = prophecy.match(/^[^.!?]+[.!?]/);
+                prophecy = firstSentence ? firstSentence[0] : prophecy.substring(0, 150);
+            }
+
+            console.log('[LLM] Prophecy:', prophecy);
+            finishProphecy(prophecy);
+        }
+    };
+
+    llmWorker.addEventListener('message', messageHandler);
+    llmWorker.postMessage({ type: 'generate', data: messages });
+}
+
+/**
+ * Finish the prophecy - display and speak it
+ */
+function finishProphecy(prophecy) {
+    setAnswer(prophecy);
+    setVoiceTranscript(prophecy);
+    speak(prophecy);
+
+    // Return to idle after speech completes (approximate)
+    setTimeout(() => {
+        resetQuestion();
+    }, 8000);
 }
 
 
@@ -836,6 +876,7 @@ function updatePTTUI() {
 
 async function startRecording() {
     if (pttState !== 'idle') return;
+    if (getPhase() !== 'idle') return;
     if (!whisperReady) {
         updatePTTTranscript('Speech recognition not ready yet...');
         return;
@@ -851,6 +892,7 @@ async function startRecording() {
     mediaRecorder.start(100);
 
     setPTTState('recording');
+    setPhase('listening');
     setPTTStatus('LISTENING', 'recording');
     updatePTTTranscript('Speak now...');
 
@@ -866,6 +908,7 @@ function stopRecording() {
     if (pttDuration) {
         pttDuration.textContent = '';
     }
+    setPhase('transcribing');
 }
 
 function updateRecordingDuration() {
@@ -889,8 +932,8 @@ function setupPTTListeners() {
         if (e.key === ' ' && pttState === 'idle') {
             // Don't trigger if typing in an input
             if (document.activeElement?.tagName === 'INPUT') return;
-            // Don't trigger during game over (let existing restart handler work)
-            if (gameState.phase === 'game_over') return;
+            // Don't trigger if not in idle state
+            if (getPhase() !== 'idle') return;
 
             e.preventDefault();
             startRecording();
@@ -994,13 +1037,13 @@ async function playWithEffects(audioUrl) {
     });
 }
 
-function launchGame() {
+function launchOracle() {
     // Hide name entry if visible
     if (nameEntryOverlay) {
         nameEntryOverlay.classList.add('hidden');
     }
 
-    setSystemStatus('ACTIVE');
+    setSystemStatus('READY');
 
     // Setup PTT listeners
     setupPTTListeners();
@@ -1014,42 +1057,59 @@ function launchGame() {
                 if (message) {
                     textInput.value = '';
                     updatePTTTranscript(message);
-                    sendToRobot(message);
+                    askQuestion(message);
                 }
             }
         });
     }
-
-    // Setup R key to restart
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'r' || e.key === 'R') {
-            // Don't trigger if typing in text input
-            if (document.activeElement === textInput) return;
-
-            if (getPhase() === 'game_over' || getPhase() === 'win') {
-                restartGame();
-                setSystemStatus('ACTIVE');
-            }
-        }
-    });
 
     // Start background music loop (runs continuously)
     Tone.Transport.bpm.value = 90;
     bgMusicSeq.start(0);
     Tone.Transport.start();
 
-    startGame(gameScreen, {
+    // Initialize the Magic 8 Ball with ShaderToy
+    initMagic8Ball('shaderCanvas', {
         speak
     });
 
+    // Update sidebar with user info
+    if (seekerName) {
+        seekerName.textContent = ballState.userName || '---';
+    }
+    if (seekerZodiac) {
+        seekerZodiac.textContent = ballState.userZodiac || '---';
+    }
+
     // Initial greeting
-    speak("Navigation systems online. Convince me to move!");
+    speak("The oracle awakens. Ask me your question!");
 }
 
+
+// Enable start button when both name and birthday are filled
+function checkFormValidity() {
+    const nameValid = playerNameInput && playerNameInput.value.trim().length > 0;
+    const birthdayValid = playerBirthdayInput && playerBirthdayInput.value.trim().length > 0;
+    startLoadBtn.disabled = !(nameValid && birthdayValid);
+}
+
+if (playerNameInput) {
+    playerNameInput.addEventListener('input', checkFormValidity);
+}
+if (playerBirthdayInput) {
+    playerBirthdayInput.addEventListener('input', checkFormValidity);
+}
 
 // Wait for user to click start button before initializing
 // This is required for AudioContext to work (needs user gesture)
 startLoadBtn.addEventListener('click', async () => {
+    // Get user info before hiding overlay
+    const name = playerNameInput ? playerNameInput.value.trim() : 'Seeker';
+    const birthday = playerBirthdayInput ? playerBirthdayInput.value.trim() : '';
+
+    // Set user info in the magic 8 ball state
+    setUserInfo(name, birthday);
+
     startOverlay.classList.add('hidden');
     loadingOverlay.classList.remove('hidden');
 

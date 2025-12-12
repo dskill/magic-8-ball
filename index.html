@@ -3,36 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>robotalk</title>
+    <title>Magic 8 Ball</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div class="game-container">
         <header class="game-header">
-            <h1 class="game-title">robotalk</h1>
+            <h1 class="game-title">MAGIC 8 BALL</h1>
             <div class="system-status">
-                <span class="status-label">SYSTEM:</span>
+                <span class="status-label">ORACLE:</span>
                 <span id="systemStatus" class="status-value">INITIALIZING</span>
             </div>
         </header>
 
         <div class="game-main">
             <div class="game-screen-wrapper">
-                <pre id="gameScreen" class="game-screen">
-                    Loading systems...
-                </pre>
+                <canvas id="shaderCanvas" class="game-screen" width="640" height="400"></canvas>
             </div>
 
             <div class="game-sidebar">
                 <div class="game-info-panel">
-                    <div class="panel-header">// GAME STATUS</div>
+                    <div class="panel-header">// ORACLE STATUS</div>
                     <div class="info-row">
-                        <span class="info-label">MISSION</span>
-                        <span class="info-value">COLLECT PELLETS</span>
+                        <span class="info-label">SEEKER</span>
+                        <span id="seekerName" class="info-value">---</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">DANGER</span>
-                        <span class="info-value" style="color: rgba(255, 158, 158, 1)">AVOID BOMBS</span>
+                        <span class="info-label">SIGN</span>
+                        <span id="seekerZodiac" class="info-value" style="color: rgba(255, 158, 255, 1)">---</span>
                     </div>
                 </div>
 
@@ -48,7 +46,7 @@
                     <div id="pttTranscript" class="ptt-transcript">
                         Loading speech recognition...
                     </div>
-                    <div class="ptt-hint">Convince the robot to move!</div>
+                    <div class="ptt-hint">Ask the oracle your question!</div>
                 </div>
 
                 <div class="message-panel">
@@ -57,14 +55,14 @@
                         type="text"
                         id="textInput"
                         class="message-input"
-                        placeholder="Type to talk to robot..."
+                        placeholder="Type your question..."
                         disabled
                     />
-                    <div class="message-hint">Press ENTER to send</div>
+                    <div class="message-hint">Press ENTER to ask</div>
                 </div>
 
                 <div class="voice-panel">
-                    <div class="panel-header">// ROBOT VOICE</div>
+                    <div class="panel-header">// ORACLE VOICE</div>
                     <div class="voice-status">
                         <span class="voice-indicator" id="voiceIndicator"></span>
                         <span id="voiceStatus">OFFLINE</span>
@@ -79,20 +77,28 @@
         <div class="game-controls">
             <div class="control-group">
                 <span class="control-key">SPACE</span>
-                <span class="control-desc">Push to Talk</span>
-            </div>
-            <div class="control-group">
-                <span class="control-key">R</span>
-                <span class="control-desc">Restart Game</span>
+                <span class="control-desc">Ask Question</span>
             </div>
         </div>
 
         <!-- Start overlay - requires user interaction before loading -->
         <div class="start-overlay" id="startOverlay">
             <div class="start-content">
-                <div class="start-title">robotalk</div>
-                <div class="start-subtitle">VOICE CONTROL SYSTEM v1.0</div>
-                <button id="startLoadBtn" class="start-load-button">[ INITIALIZE SYSTEM ]</button>
+                <div class="start-title">MAGIC 8 BALL</div>
+                <div class="start-subtitle">MYSTICAL ORACLE v1.0</div>
+
+                <div class="start-form">
+                    <div class="start-input-group">
+                        <label for="playerNameInput" class="start-label">Your Name</label>
+                        <input type="text" id="playerNameInput" class="start-input" placeholder="Enter your name..." />
+                    </div>
+                    <div class="start-input-group">
+                        <label for="playerBirthdayInput" class="start-label">Your Birthday</label>
+                        <input type="text" id="playerBirthdayInput" class="start-input" placeholder="e.g. March 15 or 3/15" />
+                    </div>
+                </div>
+
+                <button id="startLoadBtn" class="start-load-button" disabled>[ CONSULT THE ORACLE ]</button>
                 <div class="start-hint">Click to load AI models (~250MB)</div>
             </div>
         </div>
@@ -115,6 +121,7 @@
         </div>
     </div>
 
+    <script src="/ShaderToyLite.js"></script>
     <script type="module" src="/main.js"></script>
 </body>
 </html>
