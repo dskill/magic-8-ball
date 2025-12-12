@@ -1,5 +1,6 @@
 import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion, setAnswer, resetQuestion, pickRandomResponse, setResponseMode, setAudioAmplitude } from './magic8ball.js';
 import * as Tone from 'tone';
+import { effectParams } from './voiceEffects.js';
 
 // State
 let ttsWorker = null;
@@ -33,6 +34,9 @@ let bgMusicSeq = null;
 let bgMusicGain = null;
 let audioMeter = null;
 let amplitudeAnimationId = null;
+
+// Effect node references for HMR updates
+let effectNodes = {};
 
 // DOM Elements
 const systemStatus = document.getElementById('systemStatus');
@@ -238,72 +242,35 @@ async function initializeEffectsChain() {
     // Tone.start() already called by user gesture in startLoadBtn handler
 
     // Pitch shift for robotic deepness
-    const pitchShift = new Tone.PitchShift({
-        pitch: -1,
-        windowSize: 0.1,
-        delayTime: 0,
-        feedback: 0
-    });
+    const pitchShift = new Tone.PitchShift(effectParams.pitchShift);
 
     // Chorus for synthetic doubling
-    const chorus = new Tone.Chorus({
-        frequency: 2.5,
-        delayTime: 3.5,
-        depth: 0.4,
-        wet: 0.3
-    }).start();
+    const chorus = new Tone.Chorus(effectParams.chorus).start();
 
     // Phaser for metallic sweeping
-    const phaser = new Tone.Phaser({
-        frequency: 0.5,
-        octaves: 3,
-        baseFrequency: 800,
-        wet: 0.2
-    });
+    const phaser = new Tone.Phaser(effectParams.phaser);
 
     // Subtle distortion
-    const distortion = new Tone.Distortion({
-        distortion: 0.15,
-        wet: 0.0
-    });
+    const distortion = new Tone.Distortion(effectParams.distortion);
 
     // Bitcrusher for digital artifacts
-    const bitcrusher = new Tone.BitCrusher({
-        bits: 6,
-        wet: 0.0
-    });
+    const bitcrusher = new Tone.BitCrusher(effectParams.bitcrusher);
 
     // EQ to shape the robotic tone
-    const eq = new Tone.EQ3({
-        low: -6,
-        mid: 4,
-        high: 2,
-        lowFrequency: 250,
-        highFrequency: 4000
-    });
+    const eq = new Tone.EQ3(effectParams.eq);
 
     // Compressor
-    const compressor = new Tone.Compressor({
-        threshold: -20,
-        ratio: 6,
-        attack: 0.01,
-        release: 0.1
-    });
+    const compressor = new Tone.Compressor(effectParams.compressor);
 
     // Metallic reverb
-    const reverb = new Tone.Reverb({
-        decay: 3.5,
-        wet: 0.45,
-        preDelay: 0.11
-    });
+    const reverb = new Tone.Reverb(effectParams.reverb);
     await reverb.generate();
 
     // Feedback delay
-    const delay = new Tone.FeedbackDelay({
-        delayTime: 0.1,
-        feedback: 0.45,
-        wet: 0.2
-    });
+    const delay = new Tone.FeedbackDelay(effectParams.delay);
+    
+    // Store references for HMR updates
+    effectNodes = { pitchShift, chorus, phaser, distortion, bitcrusher, eq, compressor, reverb, delay };
 
     // Vocoder carrier synth
     vocoderCarrier = new Tone.PolySynth(Tone.Synth, {
@@ -354,7 +321,7 @@ async function initializeEffectsChain() {
         volume: -18
     });
 
-    bgMusicGain = new Tone.Gain(0.15);
+    bgMusicGain = new Tone.Gain(effectParams.bgMusicGain);
 
     bgMusicSeq = new Tone.Part((time, value) => {
         bgMusicSynth.triggerAttackRelease(value.notes, value.duration, time);
@@ -401,12 +368,17 @@ async function initializeEffectsChain() {
         });
     }
 
-    const vocoderOut = new Tone.Gain(0.5);
+    const vocoderOut = new Tone.Gain(effectParams.vocoderOutGain);
     bands.forEach(band => {
         band.vca.connect(vocoderOut);
     });
 
-    const dryMix = new Tone.Gain(0.15);
+    const dryMix = new Tone.Gain(effectParams.dryMixGain);
+    
+    // Store gain references for HMR
+    effectNodes.vocoderOut = vocoderOut;
+    effectNodes.dryMix = dryMix;
+    effectNodes.bgMusicGain = bgMusicGain;
 
     effectsChain = {
         input: pitchShift,
@@ -1175,3 +1147,65 @@ startLoadBtn.addEventListener('click', async () => {
 
     initializeModels();
 });
+
+// Hot Module Replacement for voice effects
+if (import.meta.hot) {
+    import.meta.hot.accept('./voiceEffects.js', (newModule) => {
+        if (newModule && effectNodes) {
+            const p = newModule.effectParams;
+            
+            // Update effect parameters
+            if (effectNodes.pitchShift) {
+                effectNodes.pitchShift.pitch = p.pitchShift.pitch;
+                effectNodes.pitchShift.windowSize = p.pitchShift.windowSize;
+            }
+            if (effectNodes.chorus) {
+                effectNodes.chorus.frequency.value = p.chorus.frequency;
+                effectNodes.chorus.delayTime = p.chorus.delayTime;
+                effectNodes.chorus.depth = p.chorus.depth;
+                effectNodes.chorus.wet.value = p.chorus.wet;
+            }
+            if (effectNodes.phaser) {
+                effectNodes.phaser.frequency.value = p.phaser.frequency;
+                effectNodes.phaser.octaves = p.phaser.octaves;
+                effectNodes.phaser.baseFrequency = p.phaser.baseFrequency;
+                effectNodes.phaser.wet.value = p.phaser.wet;
+            }
+            if (effectNodes.distortion) {
+                effectNodes.distortion.distortion = p.distortion.distortion;
+                effectNodes.distortion.wet.value = p.distortion.wet;
+            }
+            if (effectNodes.bitcrusher) {
+                effectNodes.bitcrusher.bits.value = p.bitcrusher.bits;
+                effectNodes.bitcrusher.wet.value = p.bitcrusher.wet;
+            }
+            if (effectNodes.eq) {
+                effectNodes.eq.low.value = p.eq.low;
+                effectNodes.eq.mid.value = p.eq.mid;
+                effectNodes.eq.high.value = p.eq.high;
+            }
+            if (effectNodes.compressor) {
+                effectNodes.compressor.threshold.value = p.compressor.threshold;
+                effectNodes.compressor.ratio.value = p.compressor.ratio;
+                effectNodes.compressor.attack.value = p.compressor.attack;
+                effectNodes.compressor.release.value = p.compressor.release;
+            }
+            if (effectNodes.delay) {
+                effectNodes.delay.delayTime.value = p.delay.delayTime;
+                effectNodes.delay.feedback.value = p.delay.feedback;
+                effectNodes.delay.wet.value = p.delay.wet;
+            }
+            if (effectNodes.reverb) {
+                effectNodes.reverb.wet.value = p.reverb.wet;
+                // Note: decay and preDelay require regenerating the reverb
+            }
+            
+            // Update gain nodes
+            if (effectNodes.vocoderOut) effectNodes.vocoderOut.gain.value = p.vocoderOutGain;
+            if (effectNodes.dryMix) effectNodes.dryMix.gain.value = p.dryMixGain;
+            if (effectNodes.bgMusicGain) effectNodes.bgMusicGain.gain.value = p.bgMusicGain;
+            
+            console.log('[HMR] Voice effects hot-reloaded!');
+        }
+    });
+}

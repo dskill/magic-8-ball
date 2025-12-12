@@ -6,6 +6,17 @@
 
 import { bufferAShader, imageShader } from './shaders.js';
 
+// Hot Module Replacement for shaders - prevents full page reload
+if (import.meta.hot) {
+    import.meta.hot.accept('./shaders.js', (newModule) => {
+        if (newModule && ballState.shaderToy) {
+            ballState.shaderToy.setBufferA({ source: newModule.bufferAShader });
+            ballState.shaderToy.setImage({ source: newModule.imageShader, iChannel0: 'A' });
+            console.log('[HMR] Shaders hot-reloaded!');
+        }
+    });
+}
+
 // State
 export const ballState = {
     phase: 'idle', // 'idle' | 'listening' | 'transcribing' | 'thinking' | 'responding'
