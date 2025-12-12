@@ -104,10 +104,10 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ){
     float amp = iAudioAmplitude;
     
     // Base values + audio modulation
-    float noiseStrength = 0.16 + amp * 0.05;      // More distortion when speaking
-    float noiseScale = 0.001 + amp * 0.002;      // Larger noise scale when speaking
+    float noiseStrength = 0.16 + amp * 0.005;      // More distortion when speaking
+    float noiseScale = 0.001 + amp * 0.00002;      // Larger noise scale when speaking
     float speed = 0.1 + amp * 0.05;               // Faster animation when speaking
-    float swirlIntensity = 1.0 + amp * .1;      // More intense swirl when speaking
+    float swirlIntensity = 1.0 + amp * .3;      // More intense swirl when speaking
     
     float noiseTime = iTime * speed;
 
