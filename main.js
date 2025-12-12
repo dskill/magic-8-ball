@@ -1,4 +1,4 @@
-import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion, setAnswer, resetQuestion, pickRandomResponse } from './magic8ball.js';
+import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion, setAnswer, resetQuestion, pickRandomResponse, setResponseMode } from './magic8ball.js';
 import * as Tone from 'tone';
 
 // State
@@ -824,6 +824,12 @@ Your response (start with "${response.phrase}"):`;
 function finishProphecy(prophecy) {
     setAnswer(prophecy);
     setVoiceTranscript(prophecy);
+    
+    // Set shader to display the response text (YES/NO/MAYBE/LATER)
+    if (currentResponseCategory) {
+        setResponseMode(currentResponseCategory.category);
+    }
+    
     speak(prophecy);
 
     // Return to idle after speech completes (approximate)

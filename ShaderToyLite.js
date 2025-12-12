@@ -84,6 +84,7 @@ function ShaderToyLite(canvasId) {
     // uniforms
     var iFrame = 0;
     var iMouse = {x: 0, y: 0, clickX: 0, clickY: 0};
+    var iResponseMode = 0; // 0=normal, 1=YES, 2=NO, 3=MAYBE, 4=LATER
     
     // shader common source 
     var common = "";
@@ -222,6 +223,7 @@ function ShaderToyLite(canvasId) {
         location[key]["iMouse"]             = gl.getUniformLocation(program, "iMouse");
         location[key]["iDate"]              = gl.getUniformLocation(program, "iDate");
         location[key]["iSampleRate"]        = gl.getUniformLocation(program, "iSampleRate");
+        location[key]["iResponseMode"]      = gl.getUniformLocation(program, "iResponseMode");
         location[key]["vertexInPosition"]   = gl.getAttribLocation(program, "vertexInPosition");
     
         return program;
@@ -323,6 +325,7 @@ function ShaderToyLite(canvasId) {
                 gl.uniform4f( location[key]["iMouse"], iMouse.x, iMouse.y, iMouse.clickX, iMouse.clickY);
                 gl.uniform4f( location[key]["iDate"], iDate[0], iDate[1], iDate[2], iDate[3]);
                 gl.uniform1f( location[key]["iSampleRate"], 44100);
+                gl.uniform1i( location[key]["iResponseMode"], iResponseMode);
     
                 // viewport
                 gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -400,6 +403,11 @@ function ShaderToyLite(canvasId) {
     }
     
     this.isPlaying = () => isPlaying;
+    
+    this.setResponseMode = (mode) => {
+        // 0=normal, 1=YES, 2=NO, 3=MAYBE, 4=LATER
+        iResponseMode = mode;
+    };
     
     this.reset = () => {
         var now = new Date();

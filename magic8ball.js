@@ -40,6 +40,15 @@ export const CATEGORIES = {
     ASK_LATER: ["Better not tell you now", "Cannot predict now", "Concentrate and ask again"]
 };
 
+// Response mode mapping for shader
+// 0=normal, 1=YES, 2=NO, 3=MAYBE, 4=LATER
+const RESPONSE_MODES = {
+    'YES': 1,
+    'NO': 2,
+    'MAYBE': 3,
+    'ASK_LATER': 4
+};
+
 /**
  * Parse birthday string and return zodiac sign
  */
@@ -99,10 +108,23 @@ export function getZodiacSign(birthday) {
 
 /**
  * Pick a random response category and phrase
+ * Weighted to match a real Magic 8 Ball: 50% positive, 25% negative, 25% non-committal
  */
 export function pickRandomResponse() {
-    const categoryKeys = Object.keys(CATEGORIES);
-    const categoryKey = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
+    const roll = Math.random();
+    let categoryKey;
+    
+    if (roll < 0.5) {
+        // 50% chance of YES (positive)
+        categoryKey = 'YES';
+    } else if (roll < 0.75) {
+        // 25% chance of NO (negative)
+        categoryKey = 'NO';
+    } else {
+        // 25% chance of MAYBE or ASK_LATER (non-committal)
+        categoryKey = Math.random() < 0.5 ? 'MAYBE' : 'ASK_LATER';
+    }
+    
     const phrases = CATEGORIES[categoryKey];
     const phrase = phrases[Math.floor(Math.random() * phrases.length)];
 
@@ -150,6 +172,18 @@ export function setAnswer(answer) {
 }
 
 /**
+ * Set the shader response mode based on category
+ * @param {string|null} category - 'YES', 'NO', 'MAYBE', 'ASK_LATER', or null for normal mode
+ */
+export function setResponseMode(category) {
+    if (!ballState.shaderToy) return;
+    
+    const mode = category ? (RESPONSE_MODES[category] || 0) : 0;
+    ballState.shaderToy.setResponseMode(mode);
+    ballState.currentCategory = category || '';
+}
+
+/**
  * Advance animation frame
  */
 export function advanceAnimation() {
@@ -189,4 +223,7 @@ export function resetQuestion() {
     ballState.currentAnswer = '';
     ballState.currentCategory = '';
     ballState.phase = 'idle';
+    
+    // Reset shader to normal mode
+    setResponseMode(null);
 }

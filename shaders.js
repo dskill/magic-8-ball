@@ -1,7 +1,7 @@
 /**
  * ShaderToy shaders for Magic 8 Ball
  * BufferA: "Creation by Silexars" with noise distortion
- * Image: ASCII conversion shader
+ * Image: ASCII conversion shader with response text mode
  */
 
 // BufferA - Animated plasma effect with simplex noise
@@ -133,10 +133,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ){
 }
 `;
 
-// Image shader - ASCII conversion
+// Image shader - ASCII conversion with response text mode
 // Fork of "Creation by Silexars" by Danguafer
 // Bitmap to ASCII fragment shader by movAX13h, September 2013
 export const imageShader = `
+// 5x5 bitmap character function
 float character(int n, vec2 p)
 {
     p = floor(p*vec2(-4.0, 4.0) + 2.5);
@@ -151,6 +152,52 @@ float character(int n, vec2 p)
     return 0.0;
 }
 
+// Letter bitmaps (5x5 grid encoded as int)
+// Each bit represents a pixel: bit index = x + 5*y
+const int CHAR_Y = 4329809;    // Y
+const int CHAR_E = 32571423;   // E  
+const int CHAR_S = 16267326;   // S
+const int CHAR_N = 18667121;   // N
+const int CHAR_O = 15255086;   // O
+const int CHAR_M = 18405233;   // M
+const int CHAR_A = 18415150;   // A
+const int CHAR_B = 16302515;   // B
+const int CHAR_L = 32539681;   // L
+const int CHAR_T = 4329631;    // T
+const int CHAR_R = 26394159;   // R
+const int CHAR_SPACE = 0;      // Space
+
+// Get character for "YES" (length 3)
+int getYesChar(int idx) {
+    if (idx == 0) return CHAR_Y;
+    if (idx == 1) return CHAR_E;
+    return CHAR_S;
+}
+
+// Get character for "NO" (length 2)
+int getNoChar(int idx) {
+    if (idx == 0) return CHAR_N;
+    return CHAR_O;
+}
+
+// Get character for "MAYBE" (length 5)
+int getMaybeChar(int idx) {
+    if (idx == 0) return CHAR_M;
+    if (idx == 1) return CHAR_A;
+    if (idx == 2) return CHAR_Y;
+    if (idx == 3) return CHAR_B;
+    return CHAR_E;
+}
+
+// Get character for "LATER" (length 5)
+int getLaterChar(int idx) {
+    if (idx == 0) return CHAR_L;
+    if (idx == 1) return CHAR_A;
+    if (idx == 2) return CHAR_T;
+    if (idx == 3) return CHAR_E;
+    return CHAR_R;
+}
+
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     vec2 pix = fragCoord.xy;
@@ -158,69 +205,92 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     float gray = 0.3 * col.r + 0.59 * col.g + 0.11 * col.b;
         
-    int n =  4096;
+    int n = 4096;
     
-    // limited character set
-    /*
-    if (gray > 0.2) n = 65600;    // :
-    if (gray > 0.3) n = 163153;   // *
-    if (gray > 0.4) n = 15255086; // o 
-    if (gray > 0.5) n = 13121101; // &
-    if (gray > 0.6) n = 15252014; // 8
-    if (gray > 0.7) n = 13195790; // @
-    if (gray > 0.8) n = 11512810; // #
-    */
-    
-    // full character set including A-Z and 0-9
-    
-    if (gray > 0.0233) n = 4096;
-    if (gray > 0.0465) n = 131200;
-    if (gray > 0.0698) n = 4329476;
-    if (gray > 0.0930) n = 459200;
-    if (gray > 0.1163) n = 4591748;
-    if (gray > 0.1395) n = 12652620;
-    if (gray > 0.1628) n = 14749828;
-    if (gray > 0.1860) n = 18393220;
-    if (gray > 0.2093) n = 15239300;
-    if (gray > 0.2326) n = 17318431;
-    if (gray > 0.2558) n = 32641156;
-    if (gray > 0.2791) n = 18393412;
-    if (gray > 0.3023) n = 18157905;
-    if (gray > 0.3256) n = 17463428;
-    if (gray > 0.3488) n = 14954572;
-    if (gray > 0.3721) n = 13177118;
-    if (gray > 0.3953) n = 6566222;
-    if (gray > 0.4186) n = 16269839;
-    if (gray > 0.4419) n = 18444881;
-    if (gray > 0.4651) n = 18400814;
-    if (gray > 0.4884) n = 33061392;
-    if (gray > 0.5116) n = 15255086;
-    if (gray > 0.5349) n = 32045584;
-    if (gray > 0.5581) n = 18405034;
-    if (gray > 0.5814) n = 15022158;
-    if (gray > 0.6047) n = 15018318;
-    if (gray > 0.6279) n = 16272942;
-    if (gray > 0.6512) n = 18415153;
-    if (gray > 0.6744) n = 32641183;
-    if (gray > 0.6977) n = 32540207;
-    if (gray > 0.7209) n = 18732593;
-    if (gray > 0.7442) n = 18667121;
-    if (gray > 0.7674) n = 16267326;
-    if (gray > 0.7907) n = 32575775;
-    if (gray > 0.8140) n = 15022414;
-    if (gray > 0.8372) n = 15255537;
-    if (gray > 0.8605) n = 32032318;
-    if (gray > 0.8837) n = 32045617;
-    if (gray > 0.9070) n = 33081316;
-    if (gray > 0.9302) n = 32045630;
-    if (gray > 0.9535) n = 33061407;
-    if (gray > 0.9767) n = 11512810;
-    
+    // Check if we're in response mode
+    if (iResponseMode > 0) {
+        // Calculate which character in the pattern based on x position
+        // Each character cell is 32 pixels wide
+        int charCell = int(floor(pix.x / 32.0));
+        
+        // Get the appropriate character based on response mode
+        if (iResponseMode == 1) {
+            // YES - 3 characters
+            int idx = int(mod(float(charCell), 3.0));
+            n = getYesChar(idx);
+        } else if (iResponseMode == 2) {
+            // NO - 2 characters  
+            int idx = int(mod(float(charCell), 2.0));
+            n = getNoChar(idx);
+        } else if (iResponseMode == 3) {
+            // MAYBE - 5 characters
+            int idx = int(mod(float(charCell), 5.0));
+            n = getMaybeChar(idx);
+        } else if (iResponseMode == 4) {
+            // LATER - 5 characters
+            int idx = int(mod(float(charCell), 5.0));
+            n = getLaterChar(idx);
+        }
+    } else {
+        // Normal ASCII mode - character based on brightness
+        // full character set including A-Z and 0-9
+        if (gray > 0.0233) n = 4096;
+        if (gray > 0.0465) n = 131200;
+        if (gray > 0.0698) n = 4329476;
+        if (gray > 0.0930) n = 459200;
+        if (gray > 0.1163) n = 4591748;
+        if (gray > 0.1395) n = 12652620;
+        if (gray > 0.1628) n = 14749828;
+        if (gray > 0.1860) n = 18393220;
+        if (gray > 0.2093) n = 15239300;
+        if (gray > 0.2326) n = 17318431;
+        if (gray > 0.2558) n = 32641156;
+        if (gray > 0.2791) n = 18393412;
+        if (gray > 0.3023) n = 18157905;
+        if (gray > 0.3256) n = 17463428;
+        if (gray > 0.3488) n = 14954572;
+        if (gray > 0.3721) n = 13177118;
+        if (gray > 0.3953) n = 6566222;
+        if (gray > 0.4186) n = 16269839;
+        if (gray > 0.4419) n = 18444881;
+        if (gray > 0.4651) n = 18400814;
+        if (gray > 0.4884) n = 33061392;
+        if (gray > 0.5116) n = 15255086;
+        if (gray > 0.5349) n = 32045584;
+        if (gray > 0.5581) n = 18405034;
+        if (gray > 0.5814) n = 15022158;
+        if (gray > 0.6047) n = 15018318;
+        if (gray > 0.6279) n = 16272942;
+        if (gray > 0.6512) n = 18415153;
+        if (gray > 0.6744) n = 32641183;
+        if (gray > 0.6977) n = 32540207;
+        if (gray > 0.7209) n = 18732593;
+        if (gray > 0.7442) n = 18667121;
+        if (gray > 0.7674) n = 16267326;
+        if (gray > 0.7907) n = 32575775;
+        if (gray > 0.8140) n = 15022414;
+        if (gray > 0.8372) n = 15255537;
+        if (gray > 0.8605) n = 32032318;
+        if (gray > 0.8837) n = 32045617;
+        if (gray > 0.9070) n = 33081316;
+        if (gray > 0.9302) n = 32045630;
+        if (gray > 0.9535) n = 33061407;
+        if (gray > 0.9767) n = 11512810;
+    }
     
     vec2 p = mod(pix/16.0, 2.0) - vec2(1.0);
     
-    if (iMouse.z > 0.5) col = vec3(character(n, p));
-    else col = col*character(n, p);
+    // Rotate 180 degrees to correct orientation
+    p = -p;
+    
+    // In response mode, always use colored characters
+    if (iResponseMode > 0) {
+        col = col * character(n, p);
+    } else {
+        // Normal mode: click for B&W, otherwise colored
+        if (iMouse.z > 0.5) col = vec3(character(n, p));
+        else col = col * character(n, p);
+    }
     
     fragColor = vec4(col, 1.0);
 }
