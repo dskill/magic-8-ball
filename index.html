@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TIC-TAC-TOE.EXE</title>
+    <title>robotalk</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div class="game-container">
         <header class="game-header">
-            <h1 class="game-title">TIC-TAC-TOE.EXE</h1>
+            <h1 class="game-title">robotalk</h1>
             <div class="system-status">
                 <span class="status-label">SYSTEM:</span>
                 <span id="systemStatus" class="status-value">INITIALIZING</span>
@@ -27,16 +27,12 @@
                 <div class="game-info-panel">
                     <div class="panel-header">// GAME STATUS</div>
                     <div class="info-row">
-                        <span class="info-label">PLAYER</span>
-                        <span id="playerNameDisplay" class="info-value">---</span>
+                        <span class="info-label">MISSION</span>
+                        <span class="info-value">COLLECT PELLETS</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">TURN</span>
-                        <span id="currentTurn" class="info-value">---</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">ROBOT MOOD</span>
-                        <span id="robotMood" class="info-value mood-neutral">CALCULATING</span>
+                        <span class="info-label">DANGER</span>
+                        <span class="info-value" style="color: rgba(255, 158, 158, 1)">AVOID BOMBS</span>
                     </div>
                 </div>
 
@@ -52,11 +48,23 @@
                     <div id="pttTranscript" class="ptt-transcript">
                         Loading speech recognition...
                     </div>
-                    <div class="ptt-hint">Hold SPACE or click button</div>
+                    <div class="ptt-hint">Convince the robot to move!</div>
+                </div>
+
+                <div class="message-panel">
+                    <div class="panel-header">// TEXT INPUT</div>
+                    <input
+                        type="text"
+                        id="textInput"
+                        class="message-input"
+                        placeholder="Type to talk to robot..."
+                        disabled
+                    />
+                    <div class="message-hint">Press ENTER to send</div>
                 </div>
 
                 <div class="voice-panel">
-                    <div class="panel-header">// A.I. VOICE</div>
+                    <div class="panel-header">// ROBOT VOICE</div>
                     <div class="voice-status">
                         <span class="voice-indicator" id="voiceIndicator"></span>
                         <span id="voiceStatus">OFFLINE</span>
@@ -70,24 +78,20 @@
 
         <div class="game-controls">
             <div class="control-group">
-                <span class="control-key">CLICK</span>
-                <span class="control-desc">Place X</span>
-            </div>
-            <div class="control-group">
                 <span class="control-key">SPACE</span>
                 <span class="control-desc">Push to Talk</span>
             </div>
             <div class="control-group">
-                <span class="control-key">ESC</span>
-                <span class="control-desc">Restart (Game Over)</span>
+                <span class="control-key">R</span>
+                <span class="control-desc">Restart Game</span>
             </div>
         </div>
 
         <!-- Start overlay - requires user interaction before loading -->
         <div class="start-overlay" id="startOverlay">
             <div class="start-content">
-                <div class="start-title">TIC-TAC-TOE.EXE</div>
-                <div class="start-subtitle">NEURAL INTERFACE v2.0</div>
+                <div class="start-title">robotalk</div>
+                <div class="start-subtitle">VOICE CONTROL SYSTEM v1.0</div>
                 <button id="startLoadBtn" class="start-load-button">[ INITIALIZE SYSTEM ]</button>
                 <div class="start-hint">Click to load AI models (~250MB)</div>
             </div>
@@ -103,18 +107,10 @@
             </div>
         </div>
 
+        <!-- Keep name entry overlay in DOM but hidden (referenced by main.js) -->
         <div class="name-entry-overlay hidden" id="nameEntryOverlay">
             <div class="name-entry-content">
-                <div class="name-entry-title">IDENTIFY YOURSELF</div>
-                <div class="name-entry-subtitle">The robot wants to know who it's playing against</div>
-                <input
-                    type="text"
-                    id="playerNameInput"
-                    class="name-input"
-                    placeholder="Enter your name..."
-                    maxlength="20"
-                />
-                <button id="startGameBtn" class="start-button">BEGIN GAME</button>
+                <div class="name-entry-title">LOADING</div>
             </div>
         </div>
     </div>

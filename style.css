@@ -83,17 +83,22 @@ body {
     background: #000;
     padding: 10px;
     border-right: 1px solid #00ffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
 }
 
 .game-screen {
     font-family: 'Courier New', monospace;
-    font-size: 14px;
-    line-height: 1.2;
-    letter-spacing: 1px;
+    font-size: 20px;
+    line-height: 1.4;
+    letter-spacing: 2px;
     margin: 0;
     color: #00ffff;
     white-space: pre;
     overflow: hidden;
+    text-align: center;
 }
 
 /* Sidebar */

@@ -1,4 +1,4 @@
-import { startGame, restartGame, gameState, setPhase } from './tictactoe.js';
+import { startGame, restartGame, gameState, setPhase, handleDirection, getPhase } from './game.js';
 import * as Tone from 'tone';
 
 // State
@@ -12,9 +12,6 @@ let pendingSpeechResolve = null;
 // LLM State
 let llmWorker = null;
 let llmReady = false;
-let conversationHistory = [];
-
-const SYSTEM_PROMPT = `You are UNIT-7, an arrogant 1980s mainframe computer. You are cold, logical, and dismissive. You believe humans are slow and inefficient. Respond in 1-2 short sentences only. No asterisks, no emojis, no sound effects. Example responses: "Your request has been processed. The result is disappointing, as expected." or "I calculated 10 million possibilities. You chose the worst one." or "My processors operate at optimal efficiency. Yours clearly do not."`;
 
 // Whisper/PTT State
 let whisperWorker = null;
@@ -53,6 +50,7 @@ const pttTranscript = document.getElementById('pttTranscript');
 const pttDuration = document.getElementById('pttDuration');
 const startOverlay = document.getElementById('startOverlay');
 const startLoadBtn = document.getElementById('startLoadBtn');
+const textInput = document.getElementById('textInput');
 
 // Track loading progress - only allow progress to increase, never decrease
 let currentLoadingProgress = 0;
@@ -107,7 +105,7 @@ async function initializeModels() {
 
         setTimeout(() => {
             hideLoading();
-            showNameEntry();
+            launchGame();
         }, 500);
 
     } catch (error) {
@@ -654,44 +652,146 @@ function handleTranscriptionComplete(transcript) {
     updatePTTTranscript(cleaned);
     setPTTStatus('READY', 'idle');
 
-    // Send to LLM and get robot response
+    // Send player's message to the robot
     sendToRobot(cleaned);
 }
 
-function sendToRobot(message) {
-    if (!systemReady) {
-        speak("My systems are still warming up. Try again in a moment.");
+/**
+ * Send player's message to the robot and let it decide what to say/do
+ */
+function sendToRobot(playerMessage) {
+    if (getPhase() === 'game_over' || getPhase() === 'win') {
+        speak("Press R to restart the game!");
         return;
     }
 
+    if (getPhase() !== 'playing') {
+        return;
+    }
+
+    // Interrupt any current speech immediately
+    interruptSpeech();
+
     // Update the voice transcript to show what user said
-    setVoiceTranscript(`You said: "${message}"`);
+    setVoiceTranscript(`You: "${playerMessage}"`);
 
-    console.log('[PTT] Sending to LLM:', message);
+    // Ask the LLM to respond - the robot will move if it says a direction word
+    generateRobotResponse(playerMessage);
+}
 
-    if (llmReady && llmWorker) {
-        // Just send the user's message - system prompt handles personality
-        generateWithLLM(message, (response) => {
-            if (response) {
-                // Remove quotes if present
-                let cleaned = response.replace(/^["']|["']$/g, '').trim();
-                // Limit length
-                if (cleaned.length > 200) {
-                    const firstSentence = cleaned.match(/^[^.!?]+[.!?]/);
-                    cleaned = firstSentence ? firstSentence[0] : cleaned.substring(0, 200);
-                }
-                console.log('[PTT] Robot response:', cleaned);
-                if (cleaned) {
-                    speak(cleaned);
-                }
-            } else {
-                speak("I heard you, but my response circuits malfunctioned.");
-            }
-        });
-    } else {
-        speak("My language processors are offline. I cannot respond.");
+/**
+ * Interrupt any current speech and clear the queue
+ */
+function interruptSpeech() {
+    if (player) {
+        player.stop();
+    }
+    speechQueue = [];
+
+    // Stop vocoder sequence
+    if (vocoderSeq) {
+        vocoderSeq.stop();
+    }
+
+    isSpeaking = false;
+    if (pendingSpeechResolve) {
+        pendingSpeechResolve();
+        pendingSpeechResolve = null;
     }
 }
+
+/**
+ * Parse a direction from text (checks robot's response)
+ */
+function parseDirection(text) {
+    const lower = text.toLowerCase();
+    // Check for direction words - the robot must say these to move
+    if (lower.includes('up')) return 'up';
+    if (lower.includes('down')) return 'down';
+    if (lower.includes('left')) return 'left';
+    if (lower.includes('right')) return 'right';
+    return null;
+}
+
+/**
+ * Generate robot response to player's message
+ * The robot moves ONLY if its response contains a direction word
+ */
+function generateRobotResponse(playerMessage) {
+    if (!llmReady || !llmWorker) {
+        // Fallback - random silly response without moving
+        const fallbacks = [
+            "Beep boop! I'm thinking...",
+            "Hmm, interesting human noises!",
+            "My circuits are confused!",
+            "What was that? I wasn't listening!",
+        ];
+        speak(fallbacks[Math.floor(Math.random() * fallbacks.length)]);
+        return;
+    }
+
+    // Prompt that encourages the robot to sometimes say direction words
+    const prompt = `"${playerMessage}"`;
+
+    const messages = [{ role: 'user', content: prompt }];
+
+    // Log the full LLM request
+    console.log('[LLM] ========== SENDING TO LLM ==========');
+    console.log('[LLM] Player said:', playerMessage);
+    console.log('[LLM] Full prompt:', prompt);
+    console.log('[LLM] =====================================');
+
+    let generatedText = '';
+    const messageHandler = (e) => {
+        if (e.data.status === 'update') {
+            generatedText += e.data.output;
+        } else if (e.data.status === 'complete') {
+            llmWorker.removeEventListener('message', messageHandler);
+            let response = generatedText.trim();
+
+            console.log('[LLM] ========== LLM RESPONSE ==========');
+            console.log('[LLM] Raw response:', generatedText);
+            console.log('[LLM] Cleaned response:', response);
+            const direction = parseDirection(response);
+            console.log('[LLM] Detected direction:', direction || '(none - robot stays put)');
+            console.log('[LLM] ====================================');
+
+            // Clean up response
+            response = response.replace(/^["']|["']$/g, '').trim();
+            if (response.length > 200) {
+                const firstSentence = response.match(/^[^.!?]+[.!?]/);
+                response = firstSentence ? firstSentence[0] : response.substring(0, 200);
+            }
+
+            if (response) {
+                // Check if the robot said a direction - if so, it moves!
+                const direction = parseDirection(response);
+
+                if (direction && getPhase() === 'playing') {
+                    // Robot said a direction - move it!
+                    const result = handleDirection(direction);
+
+                    // Modify response based on what happened
+                    if (result.event === 'wall_hit') {
+                        response += " ...OW! That was a wall!";
+                    } else if (result.event === 'bomb_hit') {
+                        response += " ...BOOM! Oh no, a bomb!";
+                    } else if (result.event === 'pellet_collected') {
+                        response += " Yum, a pellet!";
+                    } else if (result.event === 'win') {
+                        response += " I GOT THEM ALL! I WIN!";
+                    }
+                }
+
+                speak(response);
+            }
+        }
+    };
+
+    llmWorker.addEventListener('message', messageHandler);
+    llmWorker.postMessage({ type: 'generate', data: messages });
+}
+
 
 // ============================================
 // PTT State Management
@@ -831,59 +931,6 @@ function setupPTTListeners() {
     }
 }
 
-function generateWithLLM(prompt, onComplete) {
-    if (!llmReady || !llmWorker) {
-        onComplete(null);
-        return;
-    }
-
-    // Add user message to history
-    conversationHistory.push({ role: 'user', content: prompt });
-
-    // Build the full message array
-    const messages = [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...conversationHistory
-    ];
-
-    // Log the full conversation being sent
-    console.log('[LLM] ========== SENDING TO LLM ==========');
-    console.log('[LLM] Full message array:');
-    messages.forEach((msg, i) => {
-        console.log(`[LLM]   [${i}] ${msg.role}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`);
-    });
-    console.log('[LLM] =====================================');
-
-    let generatedText = '';
-    const messageHandler = (e) => {
-        if (e.data.status === 'update') {
-            generatedText += e.data.output;
-        } else if (e.data.status === 'complete') {
-            llmWorker.removeEventListener('message', messageHandler);
-            const response = generatedText.trim();
-
-            console.log('[LLM] Raw response:', generatedText);
-            console.log('[LLM] Trimmed response:', response);
-
-            // Add assistant response to history
-            if (response) {
-                conversationHistory.push({ role: 'assistant', content: response });
-            }
-            onComplete(response);
-        }
-    };
-
-    llmWorker.addEventListener('message', messageHandler);
-    llmWorker.postMessage({
-        type: 'generate',
-        data: messages
-    });
-}
-
-function clearConversationHistory() {
-    conversationHistory = [];
-    console.log('[LLM] Conversation history cleared');
-}
 
 async function speak(text) {
     if (!ttsReady || !ttsWorker || !systemReady) {
@@ -947,65 +994,58 @@ async function playWithEffects(audioUrl) {
     });
 }
 
-function showNameEntry() {
-    nameEntryOverlay.classList.remove('hidden');
-    playerNameInput.focus();
-    setPhase('name_entry');
-}
+function launchGame() {
+    // Hide name entry if visible
+    if (nameEntryOverlay) {
+        nameEntryOverlay.classList.add('hidden');
+    }
 
-function hideNameEntry() {
-    nameEntryOverlay.classList.add('hidden');
-}
-
-function launchGame(playerName) {
-    hideNameEntry();
     setSystemStatus('ACTIVE');
 
     // Setup PTT listeners
     setupPTTListeners();
+
+    // Setup text input
+    if (textInput) {
+        textInput.disabled = false;
+        textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const message = textInput.value.trim();
+                if (message) {
+                    textInput.value = '';
+                    updatePTTTranscript(message);
+                    sendToRobot(message);
+                }
+            }
+        });
+    }
+
+    // Setup R key to restart
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'r' || e.key === 'R') {
+            // Don't trigger if typing in text input
+            if (document.activeElement === textInput) return;
+
+            if (getPhase() === 'game_over' || getPhase() === 'win') {
+                restartGame();
+                setSystemStatus('ACTIVE');
+            }
+        }
+    });
 
     // Start background music loop (runs continuously)
     Tone.Transport.bpm.value = 90;
     bgMusicSeq.start(0);
     Tone.Transport.start();
 
-    startGame(gameScreen, playerName, {
-        speak,
-        generateWithLLM,
-        clearConversationHistory
+    startGame(gameScreen, {
+        speak
     });
+
+    // Initial greeting
+    speak("Navigation systems online. Convince me to move!");
 }
 
-function handleGameOver() {
-    setSystemStatus('GAME OVER');
-    playerMessage.disabled = true;
-}
-
-// Name entry handling
-startGameBtn.addEventListener('click', async () => {
-    const name = playerNameInput.value.trim();
-    if (name.length > 0 && systemReady) {
-        await Tone.start();
-        launchGame(name);
-    }
-});
-
-playerNameInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        startGameBtn.click();
-    }
-});
-
-// Space to restart after game over
-document.addEventListener('keydown', async (e) => {
-    if (e.key === ' ' && systemReady && gameState.phase === 'game_over') {
-        e.preventDefault();
-        await Tone.start();
-        setSystemStatus('ACTIVE');
-        playerMessage.disabled = false;
-        restartGame();
-    }
-});
 
 // Wait for user to click start button before initializing
 // This is required for AudioContext to work (needs user gesture)

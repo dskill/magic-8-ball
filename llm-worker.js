@@ -100,12 +100,10 @@ async function generate(messages) {
 
     const outputs = await model.generate({
         ...inputs,
-        max_new_tokens: 512,
+        max_new_tokens: 128,
         do_sample: true,
         temperature: 0.7,
-        top_p: 0.95,
-        top_k: 50,
-        repetition_penalty: 1.2,
+        top_p: 0.9,
         streamer,
         stopping_criteria,
     });
