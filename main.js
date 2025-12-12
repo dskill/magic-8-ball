@@ -1,4 +1,4 @@
-import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion, setAnswer, resetQuestion, pickRandomResponse, setResponseMode } from './magic8ball.js';
+import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion, setAnswer, resetQuestion, pickRandomResponse, setResponseMode, setAudioAmplitude } from './magic8ball.js';
 import * as Tone from 'tone';
 
 // State
@@ -31,6 +31,8 @@ let vocoderSeq = null;
 let bgMusicSynth = null;
 let bgMusicSeq = null;
 let bgMusicGain = null;
+let audioMeter = null;
+let amplitudeAnimationId = null;
 
 // DOM Elements
 const systemStatus = document.getElementById('systemStatus');
@@ -444,7 +446,52 @@ async function initializeEffectsChain() {
     dryMix.connect(compressor);
     compressor.connect(delay);
     delay.connect(reverb);
+    
+    // Audio meter for shader visualization - tap the voice signal before mixing with bg music
+    audioMeter = new Tone.Meter({ smoothing: 0.8 });
+    eq.connect(audioMeter);  // Measure voice after EQ, before vocoder/bg music mixing
+    
     reverb.toDestination();
+    
+    // Start amplitude monitoring loop
+    startAmplitudeMonitoring();
+}
+
+/**
+ * Monitor audio amplitude and send to shader
+ */
+function startAmplitudeMonitoring() {
+    let logCounter = 0;
+    
+    function updateAmplitude() {
+        if (audioMeter) {
+            // Get dB value from meter (-Infinity to 0)
+            const db = audioMeter.getValue();
+            
+            // Convert dB to linear amplitude (0 to 1)
+            // -60dB = 0, 0dB = 1
+            let amplitude = 0;
+            if (db > -60) {
+                amplitude = (db + 60) / 60;
+                amplitude = Math.max(0, Math.min(1, amplitude));
+            }
+            
+            // Apply some easing/smoothing for visual effect
+            amplitude = Math.pow(amplitude, 0.7);
+            
+            // Log every 30 frames (~0.5 sec at 60fps) to avoid spam
+            logCounter++;
+            if (logCounter % 30 === 0) {
+                console.log(`[Audio] dB: ${db.toFixed(2)}, amplitude: ${amplitude.toFixed(3)}`);
+            }
+            
+            setAudioAmplitude(amplitude);
+        }
+        
+        amplitudeAnimationId = requestAnimationFrame(updateAmplitude);
+    }
+    
+    updateAmplitude();
 }
 
 async function initializeLLM() {

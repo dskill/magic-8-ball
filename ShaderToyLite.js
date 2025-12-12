@@ -24,6 +24,7 @@ function ShaderToyLite(canvasId) {
     uniform vec4      iDate;                 // (year, month, day, unixtime in seconds)
     uniform float     iSampleRate;           // sound sample rate (i.e., 44100)
     uniform int       iResponseMode;         // custom: 0=normal, 1=YES, 2=NO, 3=MAYBE, 4=LATER
+    uniform float     iAudioAmplitude;       // custom: audio amplitude (0.0 to 1.0)
     out vec4          frag_out_color;
     void mainImage( out vec4 c, in vec2 f );
     void main( void )
@@ -85,6 +86,7 @@ function ShaderToyLite(canvasId) {
     var iFrame = 0;
     var iMouse = {x: 0, y: 0, clickX: 0, clickY: 0};
     var iResponseMode = 0; // 0=normal, 1=YES, 2=NO, 3=MAYBE, 4=LATER
+    var iAudioAmplitude = 0.0; // audio amplitude 0.0 to 1.0
     
     // shader common source 
     var common = "";
@@ -224,6 +226,7 @@ function ShaderToyLite(canvasId) {
         location[key]["iDate"]              = gl.getUniformLocation(program, "iDate");
         location[key]["iSampleRate"]        = gl.getUniformLocation(program, "iSampleRate");
         location[key]["iResponseMode"]      = gl.getUniformLocation(program, "iResponseMode");
+        location[key]["iAudioAmplitude"]    = gl.getUniformLocation(program, "iAudioAmplitude");
         location[key]["vertexInPosition"]   = gl.getAttribLocation(program, "vertexInPosition");
     
         return program;
@@ -326,6 +329,7 @@ function ShaderToyLite(canvasId) {
                 gl.uniform4f( location[key]["iDate"], iDate[0], iDate[1], iDate[2], iDate[3]);
                 gl.uniform1f( location[key]["iSampleRate"], 44100);
                 gl.uniform1i( location[key]["iResponseMode"], iResponseMode);
+                gl.uniform1f( location[key]["iAudioAmplitude"], iAudioAmplitude);
     
                 // viewport
                 gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -407,6 +411,11 @@ function ShaderToyLite(canvasId) {
     this.setResponseMode = (mode) => {
         // 0=normal, 1=YES, 2=NO, 3=MAYBE, 4=LATER
         iResponseMode = mode;
+    };
+    
+    this.setAudioAmplitude = (amplitude) => {
+        // 0.0 to 1.0
+        iAudioAmplitude = Math.max(0.0, Math.min(1.0, amplitude));
     };
     
     this.reset = () => {

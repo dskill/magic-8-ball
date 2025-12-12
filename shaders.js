@@ -100,12 +100,15 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ){
     
     vec2 uv0 = fragCoord.xy / r;
     
-    //
+    // Audio-reactive parameters
+    float amp = iAudioAmplitude;
     
-    float noiseStrength = 0.16;
-    float noiseScale = 0.001;
+    // Base values + audio modulation
+    float noiseStrength = 0.16 + amp * 0.05;      // More distortion when speaking
+    float noiseScale = 0.001 + amp * 0.002;      // Larger noise scale when speaking
+    float speed = 0.1 + amp * 0.05;               // Faster animation when speaking
+    float swirlIntensity = 1.0 + amp * .1;      // More intense swirl when speaking
     
-    float speed = 0.1;
     float noiseTime = iTime * speed;
 
     float noise = snoise(vec3(
@@ -126,9 +129,14 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ){
         p.x *= r.x / r.y;
         z += .03;
         l = length(p);
-        uv += p / l * (sin(z)+1.)*abs(sin(l*9.-z-z));
+        // Audio-reactive swirl intensity
+        uv += p / l * (sin(z)+1.)*abs(sin(l*9.-z-z)) * swirlIntensity;
         c[i] = .05/length(mod(uv,1.)-.5);
     }
+    
+    // Boost brightness slightly when speaking
+    c *= (1.0 + amp * 0.5);
+    
     fragColor=vec4(c/l,t);
 }
 `;

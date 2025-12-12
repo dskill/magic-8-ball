@@ -184,6 +184,15 @@ export function setResponseMode(category) {
 }
 
 /**
+ * Set the audio amplitude for shader visualization
+ * @param {number} amplitude - 0.0 to 1.0
+ */
+export function setAudioAmplitude(amplitude) {
+    if (!ballState.shaderToy) return;
+    ballState.shaderToy.setAudioAmplitude(amplitude);
+}
+
+/**
  * Advance animation frame
  */
 export function advanceAnimation() {
