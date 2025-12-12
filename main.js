@@ -237,7 +237,7 @@ async function initializeEffectsChain() {
 
     // Pitch shift for robotic deepness
     const pitchShift = new Tone.PitchShift({
-        pitch: -2,
+        pitch: -1,
         windowSize: 0.1,
         delayTime: 0,
         feedback: 0

@@ -137,7 +137,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ){
 // Fork of "Creation by Silexars" by Danguafer
 // Bitmap to ASCII fragment shader by movAX13h, September 2013
 export const imageShader = `
-// 5x5 bitmap character function
+// 5x5 bitmap character function (original with horizontal flip)
 float character(int n, vec2 p)
 {
     p = floor(p*vec2(-4.0, 4.0) + 2.5);
@@ -152,20 +152,36 @@ float character(int n, vec2 p)
     return 0.0;
 }
 
+// Character function without flips (for response text)
+// Uses positive X (no horizontal flip) and negative Y (correct vertical orientation)
+float characterNoFlip(int n, vec2 p)
+{
+    p = floor(p*vec2(4.0, -4.0) + 2.5);
+    if (clamp(p.x, 0.0, 4.0) == p.x)
+    {
+        if (clamp(p.y, 0.0, 4.0) == p.y)	
+        {
+            int a = int(round(p.x) + 5.0 * round(p.y));
+            if (((n >> a) & 1) == 1) return 1.0;
+        }	
+    }
+    return 0.0;
+}
+
 // Letter bitmaps (5x5 grid encoded as int)
-// Each bit represents a pixel: bit index = x + 5*y
+// For characterNoFlip: bit index = x + 5*y
+// x=0 is left column, y=0 is top row
 const int CHAR_Y = 4329809;    // Y
-const int CHAR_E = 32571423;   // E  
+const int CHAR_E = 31505471;   // E  
 const int CHAR_S = 16267326;   // S
 const int CHAR_N = 18667121;   // N
 const int CHAR_O = 15255086;   // O
 const int CHAR_M = 18405233;   // M
 const int CHAR_A = 18415150;   // A
-const int CHAR_B = 16302515;   // B
-const int CHAR_L = 32539681;   // L
+const int CHAR_B = 16301615;   // B
+const int CHAR_L = 31491105;   // L
 const int CHAR_T = 4329631;    // T
-const int CHAR_R = 26394159;   // R
-const int CHAR_SPACE = 0;      // Space
+const int CHAR_R = 25345583;   // R
 
 // Get character for "YES" (length 3)
 int getYesChar(int idx) {
@@ -280,14 +296,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     vec2 p = mod(pix/16.0, 2.0) - vec2(1.0);
     
-    // Rotate 180 degrees to correct orientation
-    p = -p;
-    
-    // In response mode, always use colored characters
+    // In response mode, use non-flipped character rendering
     if (iResponseMode > 0) {
-        col = col * character(n, p);
+        col = col * characterNoFlip(n, p);
     } else {
-        // Normal mode: click for B&W, otherwise colored
+        // Normal mode: click for B&W, otherwise colored (uses original flipped rendering)
         if (iMouse.z > 0.5) col = vec3(character(n, p));
         else col = col * character(n, p);
     }
