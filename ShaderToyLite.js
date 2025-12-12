@@ -1,5 +1,9 @@
+/**
+ * ShaderToyLite - A full-featured ShaderToy renderer
+ * https://github.com/chipweinberger/ShaderToyLite.js
+ */
 
-function ShaderToyLite(canvasId) {
+export default function ShaderToyLite(canvasId) {
 
     var hdr = 
     `#version 300 es

@@ -5,6 +5,7 @@
  */
 
 import { bufferAShader, imageShader } from './shaders.js';
+import ShaderToyLite from './ShaderToyLite.js';
 
 // Hot Module Replacement for shaders - prevents full page reload
 if (import.meta.hot) {
