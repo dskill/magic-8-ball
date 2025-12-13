@@ -849,12 +849,14 @@ function finishProphecy(prophecy) {
     setAnswer(prophecy);
     setVoiceTranscript(prophecy);
     
-    // Set shader to display the response text (YES/NO/MAYBE/LATER)
-    if (currentResponseCategory) {
-        setResponseMode(currentResponseCategory.category);
-    }
-    
     speak(prophecy);
+    
+    // Delay the shader response effect until 2 seconds after prophecy starts
+    setTimeout(() => {
+        if (currentResponseCategory) {
+            setResponseMode(currentResponseCategory.category);
+        }
+    }, 2000);
 
     // Return to idle after speech completes (approximate)
     setTimeout(() => {
