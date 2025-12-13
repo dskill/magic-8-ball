@@ -244,6 +244,34 @@ body {
     color: #333;
 }
 
+.start-select {
+    width: 320px;
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    padding: 12px 20px;
+    text-align: center;
+    text-align-last: center;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.start-select:focus {
+    border-color: #888;
+    color: #aaa;
+}
+
+.start-select option {
+    background: #111;
+    color: #888;
+    text-align: center;
+}
+
 .start-load-button {
     width: 320px;
     background: transparent;

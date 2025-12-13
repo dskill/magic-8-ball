@@ -97,10 +97,17 @@ const startLoadBtn = document.getElementById('startLoadBtn');
 const textInput = document.getElementById('textInput');
 const seekerName = document.getElementById('seekerName');
 const seekerZodiac = document.getElementById('seekerZodiac');
+const micSelect = document.getElementById('micSelect');
+
+// Selected microphone device ID
+let selectedMicDeviceId = null;
 
 // Magic 8 Ball state
 let currentResponseCategory = null;
 let thinkingTimeout = null;
+
+// Mic enumeration state
+let micPermissionGranted = false;
 
 // Track loading progress - only allow progress to increase, never decrease
 let currentLoadingProgress = 0;
@@ -129,6 +136,69 @@ function setVoiceStatus(status, speaking = false) {
 
 function setVoiceTranscript(text) {
     voiceTranscript.textContent = text;
+}
+
+/**
+ * Request mic permission and enumerate available microphones
+ */
+async function enumerateMicrophones() {
+    if (micPermissionGranted) return;
+    
+    try {
+        // Request permission first - this is needed to get device labels
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Stop the stream immediately - we just needed permission
+        stream.getTracks().forEach(track => track.stop());
+        
+        micPermissionGranted = true;
+        
+        // Now enumerate devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(d => d.kind === 'audioinput');
+        
+        // Clear and populate the select
+        micSelect.innerHTML = '';
+        
+        if (audioInputs.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No microphones found';
+            micSelect.appendChild(option);
+            return;
+        }
+        
+        audioInputs.forEach((device, index) => {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.textContent = device.label || `Microphone ${index + 1}`;
+            micSelect.appendChild(option);
+        });
+        
+        // Select the first one by default
+        if (audioInputs.length > 0) {
+            selectedMicDeviceId = audioInputs[0].deviceId;
+            micSelect.value = selectedMicDeviceId;
+        }
+        
+        console.log(`Found ${audioInputs.length} microphone(s)`);
+        
+    } catch (error) {
+        console.error('Microphone permission denied:', error);
+        micSelect.innerHTML = '<option value="">Mic access denied</option>';
+    }
+}
+
+// Set up mic select event handlers
+if (micSelect) {
+    // Enumerate mics when user clicks/focuses the select
+    micSelect.addEventListener('focus', enumerateMicrophones);
+    micSelect.addEventListener('click', enumerateMicrophones);
+    
+    // Store selection when changed
+    micSelect.addEventListener('change', () => {
+        selectedMicDeviceId = micSelect.value || null;
+        console.log('Selected microphone:', selectedMicDeviceId);
+    });
 }
 
 async function initializeModels() {
@@ -565,13 +635,21 @@ async function initializeWhisper() {
 
 async function initializeAudioRecording() {
     try {
+        const audioConstraints = {
+            channelCount: 1,
+            sampleRate: 16000,
+            echoCancellation: true,
+            noiseSuppression: true,
+        };
+        
+        // Use selected device if available
+        if (selectedMicDeviceId) {
+            audioConstraints.deviceId = { exact: selectedMicDeviceId };
+            console.log('Using selected microphone:', selectedMicDeviceId);
+        }
+        
         const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                channelCount: 1,
-                sampleRate: 16000,
-                echoCancellation: true,
-                noiseSuppression: true,
-            }
+            audio: audioConstraints
         });
 
         mediaRecorder = new MediaRecorder(stream, {
