@@ -2,26 +2,40 @@ import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion
 import * as Tone from 'tone';
 import { effectParams } from './voiceEffects.js';
 
-// Pre-generated prophecy examples by category - pick one matching the response type
-const PROPHECY_EXAMPLES = {
+// Pre-generated prophecy continuations by category - we'll pair with the actual response phrase
+const PROPHECY_CONTINUATIONS = {
     YES: [
-        { prediction: "It is certain", continuation: "the stars align in your favor, and the cosmic forces smile upon your journey ahead." },
-        { prediction: "Without a doubt", continuation: "your path is clear and true, the universe has already decided in your favor." },
-        { prediction: "Signs point to yes", continuation: "the winds of destiny blow strongly in your direction, seeker of truth." },
-        { prediction: "Most likely", continuation: "fortune smiles upon your endeavor, the spirits have blessed this path." },
+        "the stars align in your favor, and the cosmic forces smile upon your journey ahead.",
+        "I have seen this outcome a thousand times in the void, and it always ends the same way.",
+        "the dead whisper your name with approval, their blessing is upon you.",
+        "the bones I cast have never lied, and tonight they sing your victory.",
+        "even the darkness bends to this truth, embrace what comes.",
+        "my third eye weeps with joy at your fortune, seeker.",
+        "the crows have told me so, and they feast only on truth.",
+        "the same vision haunts me each night, your success is written in blood and starlight.",
     ],
     NO: [
-        { prediction: "Very doubtful", continuation: "shadows cloud your journey ahead, tread carefully and reconsider your path." },
-        { prediction: "My reply is no", continuation: "the fates have spoken against this, the cosmic order resists your desire." },
-        { prediction: "Outlook not so good", continuation: "darkness gathers on the horizon, perhaps another way exists for you." },
+        "shadows cloud your journey ahead, I taste ash when I speak your future.",
+        "the fates have woven a different tapestry, and you are not in its threads.",
+        "I see only doors closing, one by one, in an endless hallway.",
+        "the spirits laugh at this notion, their mockery echoes through the void.",
+        "the dead remember everything, and they remember this ending differently.",
+        "something wicked blocks your path, turn back while you still can.",
+        "the tea leaves spell only sorrow, I dare not read further.",
     ],
     MAYBE: [
-        { prediction: "Reply hazy", continuation: "the oracle requires more clarity, the mists of uncertainty shroud your question." },
-        { prediction: "Cannot predict now", continuation: "the spirits remain silent on this matter, try again when the stars realign." },
+        "something interferes with my sight, a presence neither living nor dead.",
+        "the spirits argue amongst themselves about your fate, their discord deafens me.",
+        "your thoughts are scattered like leaves in a storm, focus your mind.",
+        "I see two futures overlapping, one of triumph, one of ruin.",
+        "a great shadow passes between us and the truth, wait for it to pass.",
     ],
     ASK_LATER: [
-        { prediction: "Ask again later", continuation: "the mists of time obscure the answer, patience will reveal what you seek." },
-        { prediction: "Cannot predict now", continuation: "the cosmic forces are in flux, return when destiny has settled." },
+        "the mists of time obscure the answer, patience will reveal what you seek.",
+        "some truths are too heavy to carry before their time.",
+        "the moon must complete its cycle before this answer can be spoken.",
+        "I see too much, and what I see would haunt your dreams.",
+        "the cosmic forces are at war tonight, return when the battle ends.",
     ],
 };
 
@@ -825,17 +839,15 @@ function generateProphecy(question, response) {
         return;
     }
 
-    // Pick one random example from the same category (keeps prompt simple for small models)
-    const categoryExamples = PROPHECY_EXAMPLES[response.category] || PROPHECY_EXAMPLES.YES;
-    const example = categoryExamples[Math.floor(Math.random() * categoryExamples.length)];
+    // Pick one random continuation from the same category, use actual response phrase
+    const continuations = PROPHECY_CONTINUATIONS[response.category] || PROPHECY_CONTINUATIONS.YES;
+    const continuation = continuations[Math.floor(Math.random() * continuations.length)];
 
     const prompt = `${userName} asks: "${question}"
 
-Answer: "${response.phrase}..." then add a mysterious prophecy.
+Example: "${response.phrase}... ${continuation}"
 
-Example: "${example.prediction}... ${example.continuation}"
-
-Your answer about "${question}" (must start with "${response.phrase}"):`;
+Your answer about "${question}" (start with "${response.phrase}", mention their question):`;
 
     const messages = [{ role: 'user', content: prompt }];
 
