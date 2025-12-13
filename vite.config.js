@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/supertonic-test/',
+  base: '/magic-8-ball/',
   optimizeDeps: {
     exclude: ['onnxruntime-web']
   },

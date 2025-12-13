@@ -1,7 +1,7 @@
 {
-  "name": "supertonic-test",
+  "name": "magic-8-ball",
   "version": "1.0.0",
-  "description": "Demo app using Supertonic TTS with future Qwen LLM integration",
+  "description": "Magic 8-Ball app with voice interaction",
   "type": "module",
   "scripts": {
     "dev": "vite",
