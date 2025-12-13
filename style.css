@@ -359,6 +359,21 @@ body {
     line-height: 1.8;
 }
 
+.device-warning {
+    margin-top: 20px;
+    padding: 12px 16px;
+    background: rgba(255, 150, 0, 0.1);
+    border: 1px solid rgba(255, 150, 0, 0.3);
+    color: #ff9900;
+    font-size: 11px;
+    line-height: 1.6;
+    max-width: 320px;
+}
+
+.device-warning.hidden {
+    display: none;
+}
+
 /* Loading Overlay */
 .loading-overlay {
     position: fixed;
@@ -387,8 +402,15 @@ body {
 .loading-title {
     font-size: 16px;
     letter-spacing: 4px;
-    margin-bottom: 30px;
+    margin-bottom: 10px;
     color: #666;
+}
+
+.loading-subtitle {
+    font-size: 10px;
+    color: #444;
+    margin-bottom: 30px;
+    letter-spacing: 1px;
 }
 
 .loading-bar {

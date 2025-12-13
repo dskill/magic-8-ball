@@ -112,6 +112,16 @@ let micPermissionGranted = false;
 // Track loading progress - only allow progress to increase, never decrease
 let currentLoadingProgress = 0;
 
+// Device detection - show warning for mobile users
+function checkIfMobile() {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
+// Show warning if mobile device detected
+if (checkIfMobile()) {
+    document.getElementById('deviceWarning')?.classList.remove('hidden');
+}
+
 function updateLoadingStatus(message, progress = null) {
     loadingStatus.textContent = message;
     if (progress !== null && progress > currentLoadingProgress) {
@@ -254,9 +264,16 @@ async function initializeTTS() {
                 updateLoadingStatus(data || 'Loading TTS...', 10);
             } else if (status === 'progress' || e.data.progress !== undefined) {
                 // Handle HuggingFace progress events
-                const pct = e.data.progress || 0;
+                const loaded = e.data.loaded || 0;
+                const total = e.data.total || 0;
                 const fileName = e.data.file || '';
-                updateLoadingStatus(`Loading ${fileName}...`, 5 + pct * 0.3);
+                const pct = total > 0 ? (loaded / total) * 100 : 0;
+                
+                if (total > 0) {
+                    const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+                    const totalMB = (total / 1024 / 1024).toFixed(1);
+                    updateLoadingStatus(`${fileName}: ${loadedMB} MB / ${totalMB} MB`, 5 + pct * 0.3);
+                }
             } else if (status === 'complete' && pendingSpeechResolve) {
                 // TTS synthesis complete
                 handleTTSComplete(audio, sampleRate);
@@ -582,6 +599,18 @@ async function initializeLLM() {
                 llmReady = true;
                 console.log('LLM ready');
                 resolve();
+            } else if (e.data.status === 'progress' || e.data.progress !== undefined) {
+                // Handle HuggingFace progress events
+                const loaded = e.data.loaded || 0;
+                const total = e.data.total || 0;
+                const fileName = e.data.file || '';
+                const pct = total > 0 ? (loaded / total) * 100 : 0;
+                
+                if (total > 0) {
+                    const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+                    const totalMB = (total / 1024 / 1024).toFixed(1);
+                    updateLoadingStatus(`${fileName}: ${loadedMB} MB / ${totalMB} MB`, 40 + pct * 0.35);
+                }
             }
         };
 
@@ -613,6 +642,18 @@ async function initializeWhisper() {
                 resolve();
             } else if (e.data.status === 'loading') {
                 console.log('Whisper loading:', e.data.data);
+            } else if (e.data.status === 'progress' || e.data.progress !== undefined) {
+                // Handle HuggingFace progress events
+                const loaded = e.data.loaded || 0;
+                const total = e.data.total || 0;
+                const fileName = e.data.file || '';
+                const pct = total > 0 ? (loaded / total) * 100 : 0;
+                
+                if (total > 0) {
+                    const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+                    const totalMB = (total / 1024 / 1024).toFixed(1);
+                    updateLoadingStatus(`${fileName}: ${loadedMB} MB / ${totalMB} MB`, 75 + pct * 0.2);
+                }
             }
         };
 

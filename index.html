@@ -72,6 +72,11 @@
                 </div>
                 
                 <div class="privacy-note">All models run locally in your browser via WebGPU.<br>No data is collected or transmitted.</div>
+                
+                <div id="deviceWarning" class="device-warning hidden">
+                    This app requires ~250MB of AI models and works best on desktop browsers.
+                    Mobile devices may run out of memory.
+                </div>
             </div>
         </div>
 
@@ -81,6 +86,7 @@
         <div class="loading-overlay hidden" id="loadingOverlay">
             <div class="loading-content">
                 <div class="loading-title">SUMMONING SPIRITS</div>
+                <div class="loading-subtitle">This may take a minute on first load...</div>
                 <div class="loading-bar">
                     <div class="loading-progress" id="loadingProgress"></div>
                 </div>
