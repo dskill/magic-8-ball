@@ -1,4 +1,4 @@
-import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion, setAnswer, resetQuestion, pickRandomResponse, setResponseMode, setAudioAmplitude } from './magic8ball.js';
+import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion, setAnswer, resetQuestion, pickRandomResponse, setResponseMode, setAudioAmplitude, animateReveal } from './magic8ball.js';
 import * as Tone from 'tone';
 import { effectParams } from './voiceEffects.js';
 
@@ -975,20 +975,26 @@ async function finishProphecy(prophecy) {
     setAnswer(prophecy);
     setVoiceTranscript(prophecy);
     
-    // Show the response mode effect after a brief delay
-    setTimeout(() => {
-        if (currentResponseCategory) {
-            setResponseMode(currentResponseCategory.category);
-        }
-    }, 1000);
+    // Set the response mode immediately (starts with all chaos/random)
+    if (currentResponseCategory) {
+        setResponseMode(currentResponseCategory.category);
+    }
+    
+    // Animate the fortune emerging from the murky depths - like a real magic 8 ball
+    // Start the reveal animation (takes 5 seconds to fully emerge)
+    animateReveal(1.0, 5000);
     
     // Speak the prophecy and wait for completion
     await speak(prophecy);
     
     // Keep the response visible for a moment after speech ends
-    setTimeout(() => {
-        resetQuestion();
-    }, 2000);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Fade the fortune back into the murky depths
+    await animateReveal(0.0, 2000);
+    
+    // Reset for next question
+    resetQuestion();
 }
 
 

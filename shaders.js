@@ -273,16 +273,29 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         vec2 cellCenter = vec2(float(charCell) * 32.0 + 16.0, float(charRow) * 32.0 + 16.0);
         float dist = length(cellCenter - center) / length(center);
         
-        // Instability increases with distance from center
-        // Characters at edge flip more often
-        float instability = pow(dist, 1.5) * 0.8; // 0 at center, up to 0.8 at edges
+        // RADIAL REVEAL: iRevealProgress controls a radius that expands from center
+        // At progress=0, radius=0 (nothing revealed)
+        // At progress=1, radius extends past the edges (everything revealed)
+        float revealRadius = iRevealProgress * 1.5; // 1.5 so it fully covers corners
         
-        // Time-based randomness for flipping
+        // Soft edge on the reveal wave (0.3 = width of transition zone)
+        float edgeWidth = 0.3;
+        float cellReveal = 1.0 - smoothstep(revealRadius - edgeWidth, revealRadius, dist);
+        
+        // Instability: 1.0 when hidden, nearly 0 when revealed
+        // Add slight flicker at edges even when fully revealed for mystical effect
+        float baseFlicker = pow(dist, 2.0) * 0.15;
+        float instability = mix(1.0, baseFlicker, cellReveal);
+        
+        // Random seed for this cell
         float cellSeed = float(charCell * 100 + charRow);
-        float timeSlice = floor(iTime * (3.0 + instability * 8.0)); // Faster flipping at edges
+        
+        // Time-based randomness - faster flipping when chaotic, slower when settling
+        float flipSpeed = mix(6.0, 0.3, cellReveal);
+        float timeSlice = floor(iTime * flipSpeed);
         float flipRandom = fract(sin((cellSeed + timeSlice) * 78.233) * 43758.5453);
         
-        // Decide if this cell should show random char or the actual response char
+        // Show random char if flip random is below instability threshold
         bool showRandom = flipRandom < instability;
         
         // Get the appropriate character based on response mode

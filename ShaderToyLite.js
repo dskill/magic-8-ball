@@ -29,6 +29,7 @@ export default function ShaderToyLite(canvasId) {
     uniform float     iSampleRate;           // sound sample rate (i.e., 44100)
     uniform int       iResponseMode;         // custom: 0=normal, 1=YES, 2=NO, 3=MAYBE, 4=LATER
     uniform float     iAudioAmplitude;       // custom: audio amplitude (0.0 to 1.0)
+    uniform float     iRevealProgress;       // custom: fortune reveal progress (0.0 to 1.0)
     out vec4          frag_out_color;
     void mainImage( out vec4 c, in vec2 f );
     void main( void )
@@ -91,6 +92,7 @@ export default function ShaderToyLite(canvasId) {
     var iMouse = {x: 0, y: 0, clickX: 0, clickY: 0};
     var iResponseMode = 0; // 0=normal, 1=YES, 2=NO, 3=MAYBE, 4=LATER
     var iAudioAmplitude = 0.0; // audio amplitude 0.0 to 1.0
+    var iRevealProgress = 0.0; // fortune reveal progress 0.0 to 1.0
     
     // shader common source 
     var common = "";
@@ -231,6 +233,7 @@ export default function ShaderToyLite(canvasId) {
         location[key]["iSampleRate"]        = gl.getUniformLocation(program, "iSampleRate");
         location[key]["iResponseMode"]      = gl.getUniformLocation(program, "iResponseMode");
         location[key]["iAudioAmplitude"]    = gl.getUniformLocation(program, "iAudioAmplitude");
+        location[key]["iRevealProgress"]    = gl.getUniformLocation(program, "iRevealProgress");
         location[key]["vertexInPosition"]   = gl.getAttribLocation(program, "vertexInPosition");
     
         return program;
@@ -334,6 +337,7 @@ export default function ShaderToyLite(canvasId) {
                 gl.uniform1f( location[key]["iSampleRate"], 44100);
                 gl.uniform1i( location[key]["iResponseMode"], iResponseMode);
                 gl.uniform1f( location[key]["iAudioAmplitude"], iAudioAmplitude);
+                gl.uniform1f( location[key]["iRevealProgress"], iRevealProgress);
     
                 // viewport
                 gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -420,6 +424,11 @@ export default function ShaderToyLite(canvasId) {
     this.setAudioAmplitude = (amplitude) => {
         // 0.0 to 1.0
         iAudioAmplitude = Math.max(0.0, Math.min(1.0, amplitude));
+    };
+    
+    this.setRevealProgress = (progress) => {
+        // 0.0 to 1.0 (0 = hidden/chaotic, 1 = fully revealed)
+        iRevealProgress = Math.max(0.0, Math.min(1.0, progress));
     };
     
     this.reset = () => {

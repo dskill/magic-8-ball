@@ -205,6 +205,62 @@ export function setAudioAmplitude(amplitude) {
 }
 
 /**
+ * Set the reveal progress for fortune fade in/out
+ * @param {number} progress - 0.0 (hidden) to 1.0 (revealed)
+ */
+export function setRevealProgress(progress) {
+    if (!ballState.shaderToy) return;
+    ballState.shaderToy.setRevealProgress(progress);
+}
+
+// Animation state for reveal transitions
+let revealAnimationId = null;
+let currentRevealProgress = 0;
+let targetRevealProgress = 0;
+
+/**
+ * Animate the fortune reveal - eases in/out like a real magic 8 ball
+ * @param {number} target - Target progress (0 = hidden, 1 = revealed)
+ * @param {number} duration - Animation duration in ms (default 2000)
+ * @returns {Promise} Resolves when animation completes
+ */
+export function animateReveal(target, duration = 2000) {
+    return new Promise((resolve) => {
+        // Cancel any existing animation
+        if (revealAnimationId) {
+            cancelAnimationFrame(revealAnimationId);
+        }
+        
+        targetRevealProgress = target;
+        const startProgress = currentRevealProgress;
+        const startTime = performance.now();
+        
+        function animate(currentTime) {
+            const elapsed = currentTime - startTime;
+            const t = Math.min(elapsed / duration, 1);
+            
+            // Smooth ease-in-out curve for mysterious effect
+            const eased = t < 0.5
+                ? 4 * t * t * t
+                : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            
+            currentRevealProgress = startProgress + (targetRevealProgress - startProgress) * eased;
+            setRevealProgress(currentRevealProgress);
+            
+            if (t < 1) {
+                revealAnimationId = requestAnimationFrame(animate);
+            } else {
+                revealAnimationId = null;
+                currentRevealProgress = targetRevealProgress;
+                resolve();
+            }
+        }
+        
+        revealAnimationId = requestAnimationFrame(animate);
+    });
+}
+
+/**
  * Advance animation frame
  */
 export function advanceAnimation() {
@@ -244,6 +300,15 @@ export function resetQuestion() {
     ballState.currentAnswer = '';
     ballState.currentCategory = '';
     ballState.phase = 'idle';
+    
+    // Cancel any ongoing reveal animation
+    if (revealAnimationId) {
+        cancelAnimationFrame(revealAnimationId);
+        revealAnimationId = null;
+    }
+    currentRevealProgress = 0;
+    targetRevealProgress = 0;
+    setRevealProgress(0);
     
     // Reset shader to normal mode
     setResponseMode(null);
