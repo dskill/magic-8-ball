@@ -1,6 +1,19 @@
 import { pipeline } from '@huggingface/transformers';
 
 /**
+ * Check if WebGPU is available and working
+ */
+async function isWebGPUAvailable() {
+    try {
+        if (!navigator.gpu) return false;
+        const adapter = await navigator.gpu.requestAdapter();
+        return !!adapter;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
  * TTS Pipeline Factory - loads model from HuggingFace Hub with caching
  */
 class TTSPipelineFactory {
@@ -9,11 +22,15 @@ class TTSPipelineFactory {
 
     static async getInstance(progress_callback = null) {
         if (!this.instance) {
+            const useWebGPU = await isWebGPUAvailable();
+            const device = useWebGPU ? 'webgpu' : 'wasm';
+            console.log(`[TTS] Using device: ${device}`);
+            
             this.instance = await pipeline(
                 'text-to-speech',
                 this.model_id,
                 {
-                    device: 'webgpu',
+                    device,
                     progress_callback,
                 }
             );

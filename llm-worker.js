@@ -40,12 +40,23 @@ class InterruptableStoppingCriteria extends StoppingCriteria {
 
 const stopping_criteria = new InterruptableStoppingCriteria();
 
-async function hasFp16() {
+async function checkWebGPUSupport() {
     try {
+        if (!navigator.gpu) {
+            console.log('[LLM] WebGPU not available');
+            return { available: false, hasFp16: false };
+        }
         const adapter = await navigator.gpu.requestAdapter();
-        return adapter.features.has('shader-f16');
+        if (!adapter) {
+            console.log('[LLM] No WebGPU adapter found');
+            return { available: false, hasFp16: false };
+        }
+        const hasFp16 = adapter.features.has('shader-f16');
+        console.log('[LLM] WebGPU available, fp16:', hasFp16);
+        return { available: true, hasFp16 };
     } catch (e) {
-        return false;
+        console.log('[LLM] WebGPU check failed:', e.message);
+        return { available: false, hasFp16: false };
     }
 }
 
@@ -59,12 +70,35 @@ class TextGenerationPipeline {
             progress_callback,
         });
 
-        // Use q4f16 for WebGPU (quantized, fast)
-        this.model ??= AutoModelForCausalLM.from_pretrained(this.model_id, {
-            dtype: 'q4f16',
-            device: 'webgpu',
-            progress_callback,
-        });
+        if (!this.model) {
+            const gpu = await checkWebGPUSupport();
+            
+            if (gpu.available && gpu.hasFp16) {
+                // Best case: WebGPU with fp16 support
+                console.log('[LLM] Using WebGPU with q4f16');
+                this.model = AutoModelForCausalLM.from_pretrained(this.model_id, {
+                    dtype: 'q4f16',
+                    device: 'webgpu',
+                    progress_callback,
+                });
+            } else if (gpu.available) {
+                // WebGPU available but no fp16 - use fp32
+                console.log('[LLM] Using WebGPU with fp32 (no fp16 support)');
+                this.model = AutoModelForCausalLM.from_pretrained(this.model_id, {
+                    dtype: 'fp32',
+                    device: 'webgpu',
+                    progress_callback,
+                });
+            } else {
+                // Fallback to WASM
+                console.log('[LLM] Falling back to WASM');
+                this.model = AutoModelForCausalLM.from_pretrained(this.model_id, {
+                    dtype: 'q4',
+                    device: 'wasm',
+                    progress_callback,
+                });
+            }
+        }
 
         return Promise.all([this.tokenizer, this.model]);
     }

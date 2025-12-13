@@ -1,6 +1,19 @@
 import { pipeline } from '@huggingface/transformers';
 
 /**
+ * Check if WebGPU is available and working
+ */
+async function isWebGPUAvailable() {
+    try {
+        if (!navigator.gpu) return false;
+        const adapter = await navigator.gpu.requestAdapter();
+        return !!adapter;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
  * Singleton factory for the ASR pipeline
  * Follows the pattern from llm-worker.js
  */
@@ -10,11 +23,15 @@ class ASRPipelineFactory {
 
     static async getInstance(progress_callback = null) {
         if (!this.instance) {
+            const useWebGPU = await isWebGPUAvailable();
+            const device = useWebGPU ? 'webgpu' : 'wasm';
+            console.log(`[Whisper] Using device: ${device}`);
+            
             this.instance = await pipeline(
                 'automatic-speech-recognition',
                 this.model_id,
                 {
-                    device: 'webgpu',
+                    device,
                     dtype: 'fp32',
                     progress_callback,
                 }

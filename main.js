@@ -570,6 +570,12 @@ async function processAudioForWhisper(audioBlob) {
     setPTTState('transcribing');
     setPTTStatus('PROCESSING...', 'processing');
 
+    // Handle empty blob
+    if (audioBlob.size === 0) {
+        handleTranscriptionComplete('');
+        return;
+    }
+
     try {
         // Decode audio blob to ArrayBuffer
         const arrayBuffer = await audioBlob.arrayBuffer();
@@ -667,7 +673,7 @@ function handleTranscriptionComplete(transcript) {
 
     if (isBlank) {
         setPTTStatus('READY', 'idle');
-        setPhase('idle'); // Reset ball state too
+        setPhase('idle');
         updatePTTTranscript('(no speech detected)');
         return;
     }
@@ -675,6 +681,9 @@ function handleTranscriptionComplete(transcript) {
     // Show final transcript
     updatePTTTranscript(cleaned);
     setPTTStatus('READY', 'idle');
+    
+    // Reset phase to idle before asking question
+    setPhase('idle');
 
     // Ask the Magic 8 Ball
     askQuestion(cleaned);
@@ -684,9 +693,7 @@ function handleTranscriptionComplete(transcript) {
  * Ask the Magic 8 Ball a question
  */
 function askQuestion(question) {
-    if (getPhase() !== 'idle') {
-        return;
-    }
+    if (getPhase() !== 'idle') return;
 
     // Interrupt any current speech
     interruptSpeech();
@@ -702,12 +709,10 @@ function askQuestion(question) {
     const response = pickRandomResponse();
     currentResponseCategory = response;
 
-    // Generate a thinking quip via LLM, then after ~5 seconds generate the prophecy
+    // Generate a thinking quip via LLM, then generate the prophecy
     generateThinkingQuip(() => {
-        // After the quip is spoken, wait a bit then generate prophecy
-        thinkingTimeout = setTimeout(() => {
-            generateProphecy(question, response);
-        }, 3000); // 3 more seconds of "thinking" after quip
+        // Start prophecy immediately after quip
+        generateProphecy(question, response);
     });
 }
 
@@ -744,7 +749,7 @@ function generateThinkingQuip(onComplete) {
             "Calculating destiny...",
         ];
         speak(fallbacks[Math.floor(Math.random() * fallbacks.length)]);
-        setTimeout(onComplete, 2000);
+        setTimeout(onComplete, 500);
         return;
     }
 
@@ -767,7 +772,7 @@ function generateThinkingQuip(onComplete) {
 
             console.log('[LLM] Thinking quip:', quip);
             speak(quip);
-            setTimeout(onComplete, 2000); // Wait for TTS to finish
+            setTimeout(onComplete, 500); // Brief pause then continue
         }
     };
 
@@ -907,25 +912,50 @@ async function startRecording() {
         return;
     }
 
+    // Set state BEFORE async operations to prevent race condition with mouseup
+    setPTTState('recording');
+    setPhase('listening');
+    setPTTStatus('LISTENING', 'recording');
+    updatePTTTranscript('Speak now...');
+
     if (!mediaRecorder) {
         const success = await initializeAudioRecording();
-        if (!success) return;
+        if (!success) {
+            // Reset state on failure
+            setPTTState('idle');
+            setPhase('idle');
+            setPTTStatus('READY', 'idle');
+            return;
+        }
     }
 
     audioChunks = [];
     recordingStartTime = Date.now();
     mediaRecorder.start(100);
 
-    setPTTState('recording');
-    setPhase('listening');
-    setPTTStatus('LISTENING', 'recording');
-    updatePTTTranscript('Speak now...');
-
     updateRecordingDuration();
 }
 
 function stopRecording() {
     if (pttState !== 'recording') return;
+    
+    const durationMs = recordingStartTime ? (Date.now() - recordingStartTime) : 0;
+    
+    // Require minimum 300ms of recording to avoid empty blobs
+    const MIN_RECORDING_MS = 300;
+    if (durationMs < MIN_RECORDING_MS) {
+        const remaining = MIN_RECORDING_MS - durationMs;
+        setTimeout(() => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            recordingStartTime = null;
+            if (pttDuration) pttDuration.textContent = '';
+            setPhase('transcribing');
+        }, remaining);
+        return;
+    }
+    
     if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
     }
