@@ -70,7 +70,7 @@ async function synthesize(text, voiceId = 'M1') {
     const tts = await TTSPipelineFactory.getInstance();
     const embeddings = await loadVoiceEmbeddings();
 
-    const speakerEmbeddings = embeddings[voiceId] || embeddings.F2;
+    const speakerEmbeddings = embeddings[voiceId] || embeddings.F1;
 
     self.postMessage({ status: 'generating' });
 
