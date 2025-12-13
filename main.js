@@ -2,6 +2,29 @@ import { initMagic8Ball, ballState, setPhase, getPhase, setUserInfo, setQuestion
 import * as Tone from 'tone';
 import { effectParams } from './voiceEffects.js';
 
+// Pre-generated prophecy examples by category - pick one matching the response type
+const PROPHECY_EXAMPLES = {
+    YES: [
+        { prediction: "It is certain", continuation: "the stars align in your favor, and the cosmic forces smile upon your journey ahead." },
+        { prediction: "Without a doubt", continuation: "your path is clear and true, the universe has already decided in your favor." },
+        { prediction: "Signs point to yes", continuation: "the winds of destiny blow strongly in your direction, seeker of truth." },
+        { prediction: "Most likely", continuation: "fortune smiles upon your endeavor, the spirits have blessed this path." },
+    ],
+    NO: [
+        { prediction: "Very doubtful", continuation: "shadows cloud your journey ahead, tread carefully and reconsider your path." },
+        { prediction: "My reply is no", continuation: "the fates have spoken against this, the cosmic order resists your desire." },
+        { prediction: "Outlook not so good", continuation: "darkness gathers on the horizon, perhaps another way exists for you." },
+    ],
+    MAYBE: [
+        { prediction: "Reply hazy", continuation: "the oracle requires more clarity, the mists of uncertainty shroud your question." },
+        { prediction: "Cannot predict now", continuation: "the spirits remain silent on this matter, try again when the stars realign." },
+    ],
+    ASK_LATER: [
+        { prediction: "Ask again later", continuation: "the mists of time obscure the answer, patience will reveal what you seek." },
+        { prediction: "Cannot predict now", continuation: "the cosmic forces are in flux, return when destiny has settled." },
+    ],
+};
+
 // State
 let ttsWorker = null;
 let ttsReady = false;
@@ -710,7 +733,7 @@ function askQuestion(question) {
     currentResponseCategory = response;
 
     // Generate a thinking quip via LLM, then generate the prophecy
-    generateThinkingQuip(() => {
+    generateThinkingQuip(question, () => {
         // Start prophecy immediately after quip
         generateProphecy(question, response);
     });
@@ -740,20 +763,28 @@ function interruptSpeech() {
 /**
  * Generate a short thinking quip via LLM
  */
-function generateThinkingQuip(onComplete) {
+function generateThinkingQuip(question, onComplete) {
+    const userName = ballState.userName || 'Seeker';
+    const useName = Math.random() < 0.5; // 50% chance to include name
+    
     if (!llmReady || !llmWorker) {
-        // Fallback quips
-        const fallbacks = [
-            "Consulting the void...",
-            "The spirits stir...",
-            "Calculating destiny...",
-        ];
-        speak(fallbacks[Math.floor(Math.random() * fallbacks.length)]);
-        setTimeout(onComplete, 500);
+        console.error('[LLM] LLM not loaded - cannot generate thinking quip');
+        setVoiceTranscript('Error: AI model failed to load');
+        onComplete();
         return;
     }
 
-    const prompt = `Say a short mystical phrase (5-15 words) as if you are a fortune teller concentrating.`;
+    // Build prompt - sometimes ask for name, sometimes not
+    let prompt;
+    if (useName) {
+        prompt = `${userName} asks: "${question}"
+
+Say a short mystical phrase (5-10 words) addressing ${userName}. Example: "Ah ${userName}, the spirits whisper..."`;
+    } else {
+        prompt = `Someone asks: "${question}"
+
+Say a short mystical phrase (5-10 words) as a fortune teller thinking. Example: "The spirits whisper to me..."`;
+    }
 
     const messages = [{ role: 'user', content: prompt }];
 
@@ -785,27 +816,32 @@ function generateThinkingQuip(onComplete) {
  */
 function generateProphecy(question, response) {
     setPhase('responding');
+    const userName = ballState.userName || 'Seeker';
 
     if (!llmReady || !llmWorker) {
-        // Fallback
-        const prophecy = `${response.phrase}... The cosmic void reveals your answer.`;
-        finishProphecy(prophecy);
+        console.error('[LLM] LLM not loaded - cannot generate prophecy');
+        setVoiceTranscript('Error: AI model failed to load');
+        setPhase('idle');
         return;
     }
 
-    const prompt = `You are a mystical Magic 8 Ball oracle. Someone asked: "${question}"
+    // Pick one random example from the same category (keeps prompt simple for small models)
+    const categoryExamples = PROPHECY_EXAMPLES[response.category] || PROPHECY_EXAMPLES.YES;
+    const example = categoryExamples[Math.floor(Math.random() * categoryExamples.length)];
 
-Your answer must start with "${response.phrase}" and then add a mysterious prophecy.
+    const prompt = `${userName} asked: "${question}"
 
-Example: "Without a doubt... the stars align in your favor, seeker of truth."
-Example: "Very doubtful... darkness clouds your path, tread carefully ahead."
+Answer: "${response.phrase}..." then add a mysterious prophecy.
 
-Your response (start with "${response.phrase}"):`;
+Example: "${example.prediction}... ${example.continuation}"
+
+Your answer (must start with "${response.phrase}"):`;
 
     const messages = [{ role: 'user', content: prompt }];
 
     console.log('[LLM] ========== GENERATING PROPHECY ==========');
     console.log('[LLM] Question:', question);
+    console.log('[LLM] User:', userName);
     console.log('[LLM] Category:', response.category, '-', response.phrase);
     console.log('[LLM] Full prompt being sent:');
     console.log(prompt);
