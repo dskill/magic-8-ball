@@ -779,11 +779,11 @@ function generateThinkingQuip(question, onComplete) {
     if (useName) {
         prompt = `${userName} asks: "${question}"
 
-Say a short mystical phrase (5-10 words) addressing ${userName}. Example: "Ah ${userName}, the spirits whisper..."`;
+Say a short mystical phrase (5-10 words) addressing ${userName}, hinting at their question. Example: "Ah ${userName}, I sense what troubles you..."`;
     } else {
         prompt = `Someone asks: "${question}"
 
-Say a short mystical phrase (5-10 words) as a fortune teller thinking. Example: "The spirits whisper to me..."`;
+Say a short mystical phrase (5-10 words) as a fortune teller, hinting at their question. Example: "I sense what you seek..."`;
     }
 
     const messages = [{ role: 'user', content: prompt }];
@@ -829,13 +829,13 @@ function generateProphecy(question, response) {
     const categoryExamples = PROPHECY_EXAMPLES[response.category] || PROPHECY_EXAMPLES.YES;
     const example = categoryExamples[Math.floor(Math.random() * categoryExamples.length)];
 
-    const prompt = `${userName} asked: "${question}"
+    const prompt = `${userName} asks: "${question}"
 
 Answer: "${response.phrase}..." then add a mysterious prophecy.
 
 Example: "${example.prediction}... ${example.continuation}"
 
-Your answer (must start with "${response.phrase}"):`;
+Your answer about "${question}" (must start with "${response.phrase}"):`;
 
     const messages = [{ role: 'user', content: prompt }];
 
