@@ -845,23 +845,24 @@ Your response (start with "${response.phrase}"):`;
 /**
  * Finish the prophecy - display and speak it
  */
-function finishProphecy(prophecy) {
+async function finishProphecy(prophecy) {
     setAnswer(prophecy);
     setVoiceTranscript(prophecy);
     
-    speak(prophecy);
-    
-    // Delay the shader response effect until 2 seconds after prophecy starts
+    // Show the response mode effect after a brief delay
     setTimeout(() => {
         if (currentResponseCategory) {
             setResponseMode(currentResponseCategory.category);
         }
-    }, 2000);
-
-    // Return to idle after speech completes (approximate)
+    }, 1000);
+    
+    // Speak the prophecy and wait for completion
+    await speak(prophecy);
+    
+    // Keep the response visible for a moment after speech ends
     setTimeout(() => {
         resetQuestion();
-    }, 8000);
+    }, 2000);
 }
 
 
@@ -1038,15 +1039,19 @@ async function speak(text) {
         return;
     }
 
-    speechQueue.push(text);
-    processQueue();
+    return new Promise((resolve) => {
+        speechQueue.push({ text, onComplete: resolve });
+        processQueue();
+    });
 }
 
 async function processQueue() {
     if (isSpeaking || speechQueue.length === 0) return;
 
     isSpeaking = true;
-    const text = speechQueue.shift();
+    const item = speechQueue.shift();
+    const text = typeof item === 'string' ? item : item.text;
+    const onComplete = typeof item === 'object' ? item.onComplete : null;
 
     setVoiceStatus('SPEAKING', true);
     setVoiceTranscript(text);
@@ -1063,6 +1068,11 @@ async function processQueue() {
 
     isSpeaking = false;
     setVoiceStatus('ONLINE', false);
+    
+    // Call completion callback if provided
+    if (onComplete) {
+        onComplete();
+    }
 
     // Process next in queue
     if (speechQueue.length > 0) {

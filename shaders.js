@@ -226,6 +226,32 @@ int getLaterChar(int idx) {
     return CHAR_R;
 }
 
+// Random character from the ASCII set
+int getRandomChar(float seed) {
+    float r = fract(sin(seed * 12.9898) * 43758.5453);
+    int idx = int(r * 20.0);
+    if (idx == 0) return CHAR_Y;
+    if (idx == 1) return CHAR_E;
+    if (idx == 2) return CHAR_S;
+    if (idx == 3) return CHAR_N;
+    if (idx == 4) return CHAR_O;
+    if (idx == 5) return CHAR_M;
+    if (idx == 6) return CHAR_A;
+    if (idx == 7) return CHAR_B;
+    if (idx == 8) return CHAR_L;
+    if (idx == 9) return CHAR_T;
+    if (idx == 10) return CHAR_R;
+    if (idx == 11) return 4329476;   // random ASCII
+    if (idx == 12) return 18393220;
+    if (idx == 13) return 15239300;
+    if (idx == 14) return 17318431;
+    if (idx == 15) return 32641156;
+    if (idx == 16) return 18157905;
+    if (idx == 17) return 14954572;
+    if (idx == 18) return 6566222;
+    return 16269839;
+}
+
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     vec2 pix = fragCoord.xy;
@@ -240,24 +266,42 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         // Calculate which character in the pattern based on x position
         // Each character cell is 32 pixels wide
         int charCell = int(floor(pix.x / 32.0));
+        int charRow = int(floor(pix.y / 32.0));
+        
+        // Calculate distance from center (normalized 0-1)
+        vec2 center = iResolution.xy * 0.5;
+        vec2 cellCenter = vec2(float(charCell) * 32.0 + 16.0, float(charRow) * 32.0 + 16.0);
+        float dist = length(cellCenter - center) / length(center);
+        
+        // Instability increases with distance from center
+        // Characters at edge flip more often
+        float instability = pow(dist, 1.5) * 0.8; // 0 at center, up to 0.8 at edges
+        
+        // Time-based randomness for flipping
+        float cellSeed = float(charCell * 100 + charRow);
+        float timeSlice = floor(iTime * (3.0 + instability * 8.0)); // Faster flipping at edges
+        float flipRandom = fract(sin((cellSeed + timeSlice) * 78.233) * 43758.5453);
+        
+        // Decide if this cell should show random char or the actual response char
+        bool showRandom = flipRandom < instability;
         
         // Get the appropriate character based on response mode
         if (iResponseMode == 1) {
             // YES - 3 characters
             int idx = int(mod(float(charCell), 3.0));
-            n = getYesChar(idx);
+            n = showRandom ? getRandomChar(cellSeed + iTime) : getYesChar(idx);
         } else if (iResponseMode == 2) {
             // NO - 2 characters  
             int idx = int(mod(float(charCell), 2.0));
-            n = getNoChar(idx);
+            n = showRandom ? getRandomChar(cellSeed + iTime) : getNoChar(idx);
         } else if (iResponseMode == 3) {
             // MAYBE - 5 characters
             int idx = int(mod(float(charCell), 5.0));
-            n = getMaybeChar(idx);
+            n = showRandom ? getRandomChar(cellSeed + iTime) : getMaybeChar(idx);
         } else if (iResponseMode == 4) {
             // LATER - 5 characters
             int idx = int(mod(float(charCell), 5.0));
-            n = getLaterChar(idx);
+            n = showRandom ? getRandomChar(cellSeed + iTime) : getLaterChar(idx);
         }
     } else {
         // Normal ASCII mode - character based on brightness
