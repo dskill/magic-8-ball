@@ -9,111 +9,81 @@
 <body>
     <div class="game-container">
         <header class="game-header">
-            <h1 class="game-title">MAGIC 8 BALL</h1>
-            <div class="system-status">
-                <span class="status-label">ORACLE:</span>
-                <span id="systemStatus" class="status-value">INITIALIZING</span>
-            </div>
+            <h1 class="game-title">Ask Magic 8 Ball</h1>
         </header>
 
-        <div class="game-main">
-            <div class="game-screen-wrapper">
-                <canvas id="shaderCanvas" class="game-screen" width="640" height="400"></canvas>
+        <div class="shader-container">
+            <canvas id="shaderCanvas" class="shader-canvas" width="640" height="400"></canvas>
+        </div>
+
+        <div class="input-bar">
+            <div class="input-group">
+                <button id="pttButton" class="ptt-button ptt-idle" title="Hold to speak">
+                    <span class="ptt-label">VOICE</span>
+                </button>
+                <input
+                    type="text"
+                    id="textInput"
+                    class="question-input"
+                    placeholder="Type your question..."
+                    disabled
+                />
             </div>
-
-            <div class="game-sidebar">
-                <div class="game-info-panel">
-                    <div class="panel-header">// ORACLE STATUS</div>
-                    <div class="info-row">
-                        <span class="info-label">SEEKER</span>
-                        <span id="seekerName" class="info-value">---</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">SIGN</span>
-                        <span id="seekerZodiac" class="info-value" style="color: rgba(255, 158, 255, 1)">---</span>
-                    </div>
-                </div>
-
-                <div class="ptt-panel">
-                    <div class="panel-header">// VOICE INPUT</div>
-                    <button id="pttButton" class="ptt-button ptt-idle">
-                        <span class="ptt-icon">🎤</span> PUSH TO TALK
-                    </button>
-                    <div class="ptt-info">
-                        <span id="pttStatus" class="ptt-status ptt-status-idle">INITIALIZING</span>
-                        <span id="pttDuration" class="ptt-duration"></span>
-                    </div>
-                    <div id="pttTranscript" class="ptt-transcript">
-                        Loading speech recognition...
-                    </div>
-                    <div class="ptt-hint">Ask the oracle your question!</div>
-                </div>
-
-                <div class="message-panel">
-                    <div class="panel-header">// TEXT INPUT</div>
-                    <input
-                        type="text"
-                        id="textInput"
-                        class="message-input"
-                        placeholder="Type your question..."
-                        disabled
-                    />
-                    <div class="message-hint">Press ENTER to ask</div>
-                </div>
-
-                <div class="voice-panel">
-                    <div class="panel-header">// ORACLE VOICE</div>
-                    <div class="voice-status">
-                        <span class="voice-indicator" id="voiceIndicator"></span>
-                        <span id="voiceStatus">OFFLINE</span>
-                    </div>
-                    <div class="voice-transcript" id="voiceTranscript">
-                        Awaiting initialization...
-                    </div>
-                </div>
+            <div class="status-bar">
+                <span id="pttStatus" class="status-indicator"></span>
+                <span id="pttTranscript" class="transcript"></span>
             </div>
         </div>
 
-        <div class="game-controls">
-            <div class="control-group">
-                <span class="control-key">SPACE</span>
-                <span class="control-desc">Ask Question</span>
-            </div>
+        <!-- Hidden elements for compatibility with main.js -->
+        <div style="display:none">
+            <span id="systemStatus">INITIALIZING</span>
+            <span id="seekerName"></span>
+            <span id="seekerZodiac"></span>
+            <span id="pttDuration"></span>
+            <span id="voiceIndicator"></span>
+            <span id="voiceStatus"></span>
+            <span id="voiceTranscript"></span>
         </div>
 
-        <!-- Start overlay - requires user interaction before loading -->
+        <!-- Start overlay -->
         <div class="start-overlay" id="startOverlay">
             <div class="start-content">
                 <div class="start-title">MAGIC 8 BALL</div>
-                <div class="start-subtitle">MYSTICAL ORACLE v1.0</div>
+                <div class="start-subtitle">This could have been a random number</div>
 
                 <div class="start-form">
                     <div class="start-input-group">
                         <label for="playerNameInput" class="start-label">Your Name</label>
                         <input type="text" id="playerNameInput" class="start-input" placeholder="Enter your name..." />
                     </div>
-                    <div class="start-input-group">
-                        <label for="playerBirthdayInput" class="start-label">Your Birthday</label>
-                        <input type="text" id="playerBirthdayInput" class="start-input" placeholder="e.g. March 15 or 3/15" />
-                    </div>
                 </div>
 
-                <button id="startLoadBtn" class="start-load-button" disabled>[ CONSULT THE ORACLE ]</button>
-                <div class="start-hint">Click to load AI models (~250MB)</div>
+                <button id="startLoadBtn" class="start-load-button" disabled>[ CONSULT THE 8 BALL ]</button>
+                
+                <div class="model-list">
+                    <div class="model-item">Qwen3-0.6B <span class="model-size">~150MB</span></div>
+                    <div class="model-item">Whisper-tiny.en <span class="model-size">~40MB</span></div>
+                    <div class="model-item">Supertonic-TTS <span class="model-size">~60MB</span></div>
+                </div>
+                
+                <div class="privacy-note">All models run locally in your browser via WebGPU.<br>No data is collected or transmitted.</div>
             </div>
         </div>
+
+        <!-- Hidden birthday input for compatibility -->
+        <input type="hidden" id="playerBirthdayInput" value="" />
 
         <div class="loading-overlay hidden" id="loadingOverlay">
             <div class="loading-content">
-                <div class="loading-title">INITIALIZING SYSTEMS</div>
+                <div class="loading-title">SUMMONING SPIRITS</div>
                 <div class="loading-bar">
                     <div class="loading-progress" id="loadingProgress"></div>
                 </div>
-                <div class="loading-status" id="loadingStatus">Loading TTS models...</div>
+                <div class="loading-status" id="loadingStatus">Invoking the oracle...</div>
             </div>
         </div>
 
-        <!-- Keep name entry overlay in DOM but hidden (referenced by main.js) -->
         <div class="name-entry-overlay hidden" id="nameEntryOverlay">
             <div class="name-entry-content">
                 <div class="name-entry-title">LOADING</div>

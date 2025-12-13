@@ -894,13 +894,13 @@ function updatePTTUI() {
 
         switch (pttState) {
             case 'idle':
-                pttButton.innerHTML = '<span class="ptt-icon">🎤</span> PUSH TO TALK';
+                pttButton.textContent = 'VOICE';
                 break;
             case 'recording':
-                pttButton.innerHTML = '<span class="ptt-icon">🔴</span> LISTENING...';
+                pttButton.textContent = 'REC';
                 break;
             case 'transcribing':
-                pttButton.innerHTML = '<span class="ptt-icon">⏳</span> PROCESSING...';
+                pttButton.textContent = '...';
                 break;
         }
     }
@@ -1143,16 +1143,16 @@ function launchOracle() {
 }
 
 
-// Enable start button when both name and birthday are filled
+// Enable start button when name is filled
 function checkFormValidity() {
     const nameValid = playerNameInput && playerNameInput.value.trim().length > 0;
-    const birthdayValid = playerBirthdayInput && playerBirthdayInput.value.trim().length > 0;
-    startLoadBtn.disabled = !(nameValid && birthdayValid);
+    startLoadBtn.disabled = !nameValid;
 }
 
 if (playerNameInput) {
     playerNameInput.addEventListener('input', checkFormValidity);
 }
+// Birthday input removed - keeping reference for compatibility
 if (playerBirthdayInput) {
     playerBirthdayInput.addEventListener('input', checkFormValidity);
 }
@@ -1162,10 +1162,9 @@ if (playerBirthdayInput) {
 startLoadBtn.addEventListener('click', async () => {
     // Get user info before hiding overlay
     const name = playerNameInput ? playerNameInput.value.trim() : 'Seeker';
-    const birthday = playerBirthdayInput ? playerBirthdayInput.value.trim() : '';
 
-    // Set user info in the magic 8 ball state
-    setUserInfo(name, birthday);
+    // Set user info (no birthday/zodiac)
+    setUserInfo(name, '');
 
     startOverlay.classList.add('hidden');
     loadingOverlay.classList.remove('hidden');
