@@ -93,7 +93,7 @@ class TextGenerationPipeline {
                 // Fallback to WASM
                 console.log('[LLM] Falling back to WASM');
                 this.model = AutoModelForCausalLM.from_pretrained(this.model_id, {
-                    dtype: 'q4',
+                    dtype: 'fp32',
                     device: 'wasm',
                     progress_callback,
                 });

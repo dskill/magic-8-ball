@@ -1382,3 +1382,46 @@ if (import.meta.hot) {
         }
     });
 }
+
+// Fullscreen toggle (with Safari/webkit support)
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+function getFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement;
+}
+
+function updateFullscreenButton() {
+    if (getFullscreenElement()) {
+        fullscreenBtn.textContent = '[x]';
+        fullscreenBtn.title = 'Exit fullscreen';
+    } else {
+        fullscreenBtn.textContent = '[ ]';
+        fullscreenBtn.title = 'Enter fullscreen';
+    }
+}
+
+if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', async () => {
+        try {
+            if (!getFullscreenElement()) {
+                const el = document.documentElement;
+                if (el.requestFullscreen) {
+                    await el.requestFullscreen();
+                } else if (el.webkitRequestFullscreen) {
+                    await el.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    await document.webkitExitFullscreen();
+                }
+            }
+        } catch (err) {
+            console.error('[Fullscreen] Error:', err.message);
+        }
+    });
+}
+
+document.addEventListener('fullscreenchange', updateFullscreenButton);
+document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
