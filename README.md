@@ -1,10 +1,11 @@
 # Magic 8 Ball 🎱
 
 A fully on-device Magic 8 Ball with voice interaction. Ask your question by speaking or typing, and receive a mystical response—complete with text-to-speech and spooky shader effects.
-
-![Screenshot](screenshot0.png)
-![Screenshot](screenshot1.png)
-
+<div align="center">
+  <img src="screenshot0.png" width="30%" />
+  <img src="screenshot1.png" width="30%" />
+  <img src="screenshot2.png" width="30%" />
+</div>
 ## Tech Stack
 
 All AI runs locally in your browser via WebGPU. **Nothing leaves your device.**
