@@ -2,7 +2,8 @@
 
 A fully on-device Magic 8 Ball with voice interaction. Ask your question by speaking or typing, and receive a mystical response—complete with text-to-speech and spooky shader effects.
 
-![Screenshot](screenshot.png)
+![Screenshot](screenshot0.png)
+![Screenshot](screenshot1.png)
 
 ## Tech Stack
 
