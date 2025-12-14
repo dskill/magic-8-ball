@@ -557,7 +557,6 @@ async function initializeEffectsChain() {
  * Monitor audio amplitude and send to shader
  */
 function startAmplitudeMonitoring() {
-    let logCounter = 0;
     
     function updateAmplitude() {
         if (audioMeter) {
@@ -574,12 +573,6 @@ function startAmplitudeMonitoring() {
             
             // Apply some easing/smoothing for visual effect
             amplitude = Math.pow(amplitude, 0.7);
-            
-            // Log every 30 frames (~0.5 sec at 60fps) to avoid spam
-            logCounter++;
-            if (logCounter % 30 === 0) {
-                console.log(`[Audio] dB: ${db.toFixed(2)}, amplitude: ${amplitude.toFixed(3)}`);
-            }
             
             setAudioAmplitude(amplitude);
         }

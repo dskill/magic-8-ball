@@ -90,10 +90,10 @@ class TextGenerationPipeline {
                     progress_callback,
                 });
             } else {
-                // Fallback to WASM
+                // Fallback to WASM - let transformers.js auto-select compatible dtype
+                // Safari's WASM doesn't support q4 quantization
                 console.log('[LLM] Falling back to WASM');
                 this.model = AutoModelForCausalLM.from_pretrained(this.model_id, {
-                    dtype: 'fp32',
                     device: 'wasm',
                     progress_callback,
                 });
