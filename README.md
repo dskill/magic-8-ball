@@ -27,3 +27,4 @@ npm run dev
 ```
 
 Requires a WebGPU-capable browser (Chrome 113+, Edge 113+).
+
