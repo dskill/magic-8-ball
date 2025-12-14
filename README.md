@@ -28,3 +28,7 @@ npm run dev
 
 Requires a WebGPU-capable browser (Chrome 113+, Edge 113+).
 
+## Credits
+
+Shader effects based on [Bitmap to ASCII](https://www.shadertoy.com/view/Mc3Szn) by movAX13h, which is a fork of ["Creation by Silexars"](https://shadertoy.com/view/XsXXDn) by Danilo Guanabara (Danguafer).
+
