@@ -6,6 +6,7 @@ A fully on-device Magic 8 Ball with voice interaction. Ask your question by spea
   <img src="screenshot1.png" width="30%" />
   <img src="screenshot2.png" width="30%" />
 </div>
+
 ## Tech Stack
 
 All AI runs locally in your browser via WebGPU. **Nothing leaves your device.**
