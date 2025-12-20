@@ -1,5 +1,7 @@
 # Magic 8 Ball 🎱
 
+[Demo](https://dskill.github.io/magic-8-ball/)
+
 A fully on-device Magic 8 Ball with voice interaction. Ask your question by speaking or typing, and receive a mystical response—complete with text-to-speech and spooky shader effects.
 <div align="center">
   <img src="screenshot0.png" width="30%" />
